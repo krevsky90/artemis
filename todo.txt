@@ -1,0 +1,7 @@
+1) add healthcheck to artemis + depends on for order-service
+2) move Order entity to common module (from order-service and inventory-service)
+3) move
+    messaging:
+      queues:
+        orders: orders.queue
+        to common module

@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: order-service
+
+  artemis:
+    # mode = embedded - when artemis is launched inside the application - just for learning purposes
+    mode: native
+    broker-url: tcp://localhost:61616
+    # user and password - that are created by docker-compose file
+    user: admin
+    password: admin
+
+#  jms:
+#    listener:
+#      acknowledge-mode: auto
+#      concurrency: 2-10
+#
+#    template:
+#      delivery-mode: non_persistent
+#      priority: 4
+#      receive-timeout: 5000
+#      qos-enabled: true
+
+server:
+  port: 8081
+
+messaging:
+  queues:
+    orders: orders.queue

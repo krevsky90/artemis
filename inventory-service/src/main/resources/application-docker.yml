@@ -1,0 +1,4 @@
+spring:
+  artemis:
+    # mode = embedded - when artemis is launched inside the application - just for learning purposes
+    broker-url: tcp://artemis:61616
