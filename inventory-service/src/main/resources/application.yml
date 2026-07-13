@@ -13,11 +13,11 @@ spring:
     user: admin
     password: admin
 
-#  jms:
-#    listener:
-#      acknowledge-mode: auto
-#      concurrency: 2-10
-#
+  jms:
+    listener:
+      # acknowledge-mode: auto
+      concurrency: 5
+
 #    template:
 #      delivery-mode: non_persistent
 #      priority: 4
