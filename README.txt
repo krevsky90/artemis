@@ -107,23 +107,6 @@ NOTE:
     где #0 - номер JMS listener-a (т.к. над классом консюмера указан листенер)
         -3 - номер консюмера, отвечающего этому листенеру
 
-Этап 6. DLQ settings
-    Чтобы сделать ретрай консюмера 3 раза с интервалом 2 сек,
-    нужно изменить broker.xml
-        redelivery-delay = 2s
-        max-delivery-attempts = 3
-    затем скопировать локальный измененный файл на сервис артемиса
-        docker cp ./broker/config/broker.xml artemis:/var/lib/artemis-instance/etc/broker.xml
-    и рестартануть его:
-        docker compose restart artemis
-
-    NOTE: чтобы наглядно проверить, что идут ретраи, можно временно внедрить в consumer поле jakarta.jms.Message
-        и взять у него проперти JMSXDeliveryCount
-        Тогда в логах inventory-service увидим deliveryCount=1, потом = 2, потом =3.
-        Пример:
-        2026-07-13T18:38:10.432Z  INFO 1 --- [inventory-service] [ntContainer#0-7] com.krev.consumer.OrderConsumer          : deliveryCount=3
-
-
 Этап 5. Ack from consumer
     Обычный flow:
         Получить сообщение -> Преобразовать JSON -> Вызвать @JmsListener
@@ -203,3 +186,32 @@ NOTE:
     JMSExpiration	TTL сообщений
     JMSDestination	Диагностика и универсальные обработчики
     JMSTimestamp	Аудит и измерение задержек
+
+Этап 6. DLQ settings
+    Чтобы сделать ретрай консюмера 3 раза с интервалом 2 сек,
+    нужно изменить broker.xml
+        redelivery-delay = 2s
+        max-delivery-attempts = 3
+    затем скопировать локальный измененный файл на сервис артемиса
+        docker cp ./broker/config/broker.xml artemis:/var/lib/artemis-instance/etc/broker.xml
+    и рестартануть его:
+        docker compose restart artemis
+
+    NOTE: чтобы наглядно проверить, что идут ретраи, можно временно внедрить в consumer поле jakarta.jms.Message
+        и взять у него проперти JMSXDeliveryCount
+        Тогда в логах inventory-service увидим deliveryCount=1, потом = 2, потом =3.
+        Пример:
+        2026-07-13T18:38:10.432Z  INFO 1 --- [inventory-service] [ntContainer#0-7] com.krev.consumer.OrderConsumer          : deliveryCount=3
+
+    NOTE: в отличие от кафка, в artemis есть DLQ по умолчанию. Имеет смысл рассмотреть 3 сценария:
+        1) max-delivery-attempts=-1 — сообщение бесконечно переотправляется и никогда не попадает в DLQ. растет JMSXDeliveryCount.
+            используют для каких-то супер важных сообщений.
+            ОПАСНО, т.к. если в очереди poison message (например, с throw new RuntimeException()), то вся очередь будет бесконечно ждать.
+            ИМЕННО из-за poison message и придумали DLQ!
+
+            Пример настройки для конкретного паттерна очередей (в broker.xml):
+                <address-setting match="orders.#">
+                    <max-delivery-attempts>-1</max-delivery-attempts>
+                </address-setting>
+        2) max-delivery-attempts=3 — сообщение после трех ошибок уходит в DLQ. Это классический сценарий, к-ый я реализовал
+        3) Большой redelivery-delay, например 30000 мс. Тогда станет заметно, что очередь не "долбит" Consumer непрерывно, а выдерживает паузу между попытками.
