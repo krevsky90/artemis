@@ -1,0 +1,3 @@
+messaging:
+  queues:
+    orders: orders.queue

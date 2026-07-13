@@ -2,6 +2,9 @@ spring:
   application:
     name: inventory-service
 
+  config:
+    import: optional:classpath:order-contract.yml
+
   artemis:
     # mode = embedded - when artemis is launched inside the application - just for learning purposes
     mode: native
@@ -23,7 +26,3 @@ spring:
 
 server:
   port: 8082
-
-messaging:
-  queues:
-    orders: orders.queue
