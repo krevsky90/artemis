@@ -62,3 +62,47 @@ NOTE:
      |
      |
     OrderEventCreated
+
+Этап 3: добавить 5 консюмеров:
+Спринг создает:
+    DefaultMessageListenerContainer
+        ↓
+        Connection
+        ↓
+            Session1
+            ↓
+            Consumer1
+            ↓
+            Thread1
+
+
+            Session2
+            ↓
+            Consumer2
+            ↓
+            Thread2
+
+Путь сообщения, когда 1 консюмер:
+    orders.queue  -> JMS Consumer -> Thread -> @JmsListener
+
+Путь сообщение, когда 5 консюмеров (т.е. concurrency = 5)
+    orders.queue
+          │
+     ┌────┴────┐
+      Consumer1
+        ...
+      Consumer5
+     └────┬────┘
+          │
+    Spring Listener Container
+
+    То есть создается 5 независимых JMS Consumer.
+    И каждый имеет
+        1) собственную Session;
+        2) собственный MessageConsumer;
+        3) собственный поток.
+
+В логах inventory-service:
+    Thread=org.springframework.jms.JmsListenerEndpointContainer#0-3 finished order=8b9ba3ce-52c5-44e6-b973-0dccd4aacca5
+    где #0 - номер JMS listener-a (т.к. над классом консюмера указан листенер)
+        -3 - номер консюмера, отвечающего этому листенеру
