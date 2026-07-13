@@ -1,0 +1,321 @@
+План изучения Artemis MQ
+
+==========================================
+Этап 1. Теория обмена сообщениями (1 день)
+
+Изучи:
+
+зачем вообще нужен Message Broker
+синхронное vs асинхронное взаимодействие
+Event-driven architecture
+Message Queue
+Publish/Subscribe
+Producer
+Consumer
+Broker
+Dead Letter Queue (DLQ)
+Retry
+Acknowledge
+Durable Queue
+
+==========================================
+Этап 2. Что такое Artemis
+
+Artemis — это брокер сообщений.
+
+Он поддерживает множество протоколов:
+
+JMS
+AMQP
+MQTT
+STOMP
+OpenWire
+Core Protocol
+
+==========================================
+Этап 4. Жизненный цикл сообщения
+Producer
+
+↓
+
+Broker
+
+↓
+
+Queue
+
+↓
+
+Consumer
+
+↓
+
+ACK
+
+↓
+
+Удаление сообщения
+
+Если ACK нет:
+
+Consumer упал
+
+↓
+
+Сообщение остается
+
+↓
+
+Будет доставлено снова
+
+===================================
+Этап 5. Что обязательно изучить
+
+После базовых Queue и Topic:
+
+Message Priority
+Delayed Messages
+Scheduled Messages
+TTL
+Expiration
+Retry
+DLQ
+Transactions
+XA
+Message Selector
+Exclusive Queue
+Last Value Queue
+Paging
+Persistence
+Clustering
+High Availability
+Практический проект
+
+Предлагаю сделать мини интернет-магазин.
+
+               REST
+
+                |
+
+          Order Service
+
+                |
+
+                | JMS
+
+                V
+
+         Artemis Broker
+
+         /      |      \
+
+Inventory  Email  Analytics
+ Service    Service Service
+
+Order Service ничего не знает о трех остальных сервисах.
+
+================================================
+
+Структура проекта
+artemis-demo
+
+|
+
+├── producer-service
+
+├── consumer-service
+
+└── docker-compose.yml
+
+==============================
+
+Чему научит проект
+Artemis
+
+Order Service
+
+Inventory Service
+	Слушает orders.queue
+	И делает Reserve product
+	После чего отправляет inventory.completed
+
+Notification Service
+	Подписан на	inventory.completed
+	Отправляет Email sent
+
+Analytics Service
+	Подписан на Topic orders.topic
+	и считает Всего заказов, Средний чек, Количество заказов
+	Он нужен только чтобы показать разницу между Queue и Topic.
+
+========================= ПЛАН =========================
+Этап 1
+Самый простой Producer.
+REST
+↓
+JmsTemplate
+↓
+Queue
+
+Этап 2
+Один Consumer.
+Queue
+↓
+Consumer
+
+Этап 3
+Несколько Consumer.
+concurrency=5
+Посмотрим, как Artemis распределяет сообщения.
+
+Этап 4
+Остановим Consumer.
+Отправим 100 сообщений
+Потом включим обратно.
+Увидим что ничего не потерялось.
+
+Этап 5
+ACK
+Попробуем throw new RuntimeException();
+И посмотрим, что сообщение приходит снова.
+
+Этап 6
+DLQ
+Настроим max-delivery-attempts = 3
+После трёх ошибок сообщение попадёт в DLQ
+
+Этап 7
+Transactions
+Покажем
+Получили сообщение
+↓
+Записали в БД
+↓
+ACK
+или
+Получили сообщение
+↓
+Ошибка
+↓
+Rollback
+↓
+Сообщение вернулось
+
+Этап 8
+Покажем разницу
+Queue:
+Producer
+↓
+Consumer A
+и
+Topic:
+Producer
+↓
+Consumer A
+↓
+Consumer B
+↓
+Consumer C
+
+Этап 9
+Selectors
+Например, priority = HIGH получает HighPriorityConsumer
+
+Этап 10
+Message Groups
+Покажем что все сообщения одного заказа
+Order 15
+всегда обрабатывает один Consumer.
+
+Этап 11
+Scheduled Message
+Отправим сообщение через 30 секунд
+
+Этап 12
+TTL
+Сообщение живёт 1 минуту
+После этого удаляется.
+
+Этап 13
+Priority
+Покажем Priority = 9 и Priority = 1
+
+Этап 14
+Persistence
+Остановим контейнер.
+Запустим заново.
+Покажем что сообщения сохранились.
+
+Этап 15
+Web Console
+Научимся смотреть
+Queue
+Messages
+Consumers
+DLQ
+Connections
+Sessions
+
+============================
+
+После выполнения проекта ты будешь понимать:
+
+как работает JMS;
+чем Artemis отличается от Kafka;
+как устроен брокер;
+как создаются Queue и Topic;
+как работает ACK;
+что происходит при падении Consumer;
+как работают Retry и DLQ;
+как масштабируются Consumer (concurrency);
+как использовать транзакции.
+
+- - - - - - - -
+
+Что попробовать после запуска
+Отправить 100 сообщений.
+Остановить Consumer.
+Отправить ещё 100.
+Запустить Consumer снова.
+Убедиться, что сообщения не потерялись.
+Настроить DLQ и проверить поведение при исключениях.
+Добавить второй Consumer и посмотреть, как очередь распределяет сообщения между ними.
+Переключиться с Queue на Topic и увидеть, как оба подписчика получают каждое сообщение.
+План развития проекта
+Один Producer → один Consumer.
+Несколько Consumer (конкурентная обработка).
+Несколько Queue.
+Topic + несколько подписчиков.
+JSON через Jackson.
+Retry + DLQ.
+Транзакции (@Transactional + JMS).
+Docker Compose с Producer, Consumer и Artemis.
+Добавить PostgreSQL и реализовать шаблон Outbox.
+Развернуть всё в Kubernetes с отдельным контейнером Artemis.
+
+==============================
+Что изучить после Artemis
+
+После уверенного владения Artemis станет значительно проще освоить:
+
+RabbitMQ — для понимания AMQP и различных моделей маршрутизации.
+Apache Kafka — для потоковой обработки событий и высокой пропускной способности.
+Паттерны: Outbox, Saga, CQRS, Event Sourcing.
+
+==============================
+
+????????
+
+1.4
+│
+├── 1.4.1 ACK
+│
+├── 1.4.2 Exception
+│
+├── 1.4.3 Redelivery
+│
+├── 1.4.4 DLQ
+│
+├── 1.4.5 Retry
+│
+└── 1.4.6 Idempotency
