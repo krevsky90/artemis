@@ -1,13 +1,9 @@
 package com.krev.producer;
 
-import com.krev.entity.Order;
-import com.krev.event.OrderCreatedEvent;
+import com.krev.order.contract.OrderCreatedEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.util.UUID;
 
 @Service
 public class OrderProducer {

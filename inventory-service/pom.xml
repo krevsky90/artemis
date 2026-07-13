@@ -11,6 +11,12 @@
     <name>inventory-service</name>
 
     <dependencies>
+        <dependency>
+            <groupId>com.krev</groupId>
+            <artifactId>order-contract</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Artemis JMS -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -23,4 +29,13 @@
             <artifactId>spring-boot-starter-json</artifactId>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -1,7 +1,6 @@
 package com.krev.controller;
 
-import com.krev.entity.Order;
-import com.krev.event.OrderCreatedEvent;
+import com.krev.order.contract.OrderCreatedEvent;
 import jakarta.validation.Valid;
 import com.krev.dto.OrderRequest;
 import com.krev.producer.OrderProducer;
