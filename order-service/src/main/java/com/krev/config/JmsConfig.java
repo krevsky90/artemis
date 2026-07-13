@@ -2,7 +2,7 @@ package com.krev.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.krev.event.OrderCreatedEvent;
+import com.krev.order.contract.OrderCreatedEvent;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

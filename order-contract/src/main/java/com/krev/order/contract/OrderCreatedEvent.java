@@ -1,4 +1,4 @@
-package com.krev.event;
+package com.krev.order.contract;
 
 import java.math.BigDecimal;
 import java.time.Instant;

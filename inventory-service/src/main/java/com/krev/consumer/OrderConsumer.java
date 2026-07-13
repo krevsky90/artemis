@@ -1,6 +1,6 @@
 package com.krev.consumer;
 
-import com.krev.event.OrderCreatedEvent;
+import com.krev.order.contract.OrderCreatedEvent;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.stereotype.Component;
 

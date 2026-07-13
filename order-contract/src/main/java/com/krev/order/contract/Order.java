@@ -1,4 +1,4 @@
-package com.krev.entity;
+package com.krev.order.contract;
 
 import java.math.BigDecimal;
 import java.util.UUID;
