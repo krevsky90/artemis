@@ -218,7 +218,11 @@ under the License.
          <address-setting match="#">
             <dead-letter-address>DLQ</dead-letter-address>
             <expiry-address>ExpiryQueue</expiry-address>
-            <redelivery-delay>0</redelivery-delay>
+            <!-- После ошибки ждать 2 секунды -->
+            <redelivery-delay>2000</redelivery-delay>
+
+            <!-- Максимум 3 попытки -->
+            <max-delivery-attempts>3</max-delivery-attempts>
 
             <message-counter-history-day-limit>10</message-counter-history-day-limit>
             <address-full-policy>PAGE</address-full-policy>

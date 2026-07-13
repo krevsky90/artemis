@@ -106,3 +106,30 @@ NOTE:
     Thread=org.springframework.jms.JmsListenerEndpointContainer#0-3 finished order=8b9ba3ce-52c5-44e6-b973-0dccd4aacca5
     где #0 - номер JMS listener-a (т.к. над классом консюмера указан листенер)
         -3 - номер консюмера, отвечающего этому листенеру
+
+Этап 6. DLQ settings
+    Чтобы сделать ретрай консюмера 3 раза с интервалом 2 сек,
+    нужно изменить broker.xml
+        redelivery-delay = 2s
+        max-delivery-attempts = 3
+    затем скопировать локальный измененный файл на сервис артемиса
+        docker cp ./broker/config/broker.xml artemis:/var/lib/artemis-instance/etc/broker.xml
+    и рестартануть его:
+        docker compose restart artemis
+
+    NOTE: чтобы наглядно проверить, что идут ретраи, можно временно внедрить в consumer поле jakarta.jms.Message
+        и взять у него проперти JMSXDeliveryCount
+        Тогда в логах inventory-service увидим deliveryCount=1, потом = 2, потом =3.
+        Пример:
+        2026-07-13T18:38:10.432Z  INFO 1 --- [inventory-service] [ntContainer#0-7] com.krev.consumer.OrderConsumer          : deliveryCount=3
+
+
+Этап 5. Ack from consumer
+    Обычный flow:
+        Получить сообщение -> Преобразовать JSON -> Вызвать @JmsListener
+        -> Метод завершился без Exception -> Spring отправил ACK -> Artemis удалил сообщение
+
+    Если произошло исключение:
+        Получить сообщение -> Вызвать @JmsListener -> RuntimeException -> ACK НЕ отправлен
+        -> Artemis считает сообщение необработанным -> Через некоторое время отправляет снова
+
