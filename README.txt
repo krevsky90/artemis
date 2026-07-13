@@ -133,3 +133,73 @@ NOTE:
         Получить сообщение -> Вызвать @JmsListener -> RuntimeException -> ACK НЕ отправлен
         -> Artemis считает сообщение необработанным -> Через некоторое время отправляет снова
 
+    NOTE: ACK отправляется DefaultMessageListenerContainer-ом (или JmsListenerEndpointContainer в новых версиях Spring).
+        т.е. по умолчанию НЕ моим кодом.
+
+    Типы ACK-ов:
+        1) AUTO_ACKNOWLEDGE - спринг решает сам
+        2) CLIENT_ACKNOWLEDGE - программист решает message.acknowledge();
+            Можно вызвать позже. Можно не вызвать.
+            Можно обработать несколько сообщений и подтвердить их одной операцией.
+        3) DUPS_OK_ACKNOWLEDGE
+            ACK отправляется не сразу. Spring/JMS Provider может копить подтверждения.
+            Это быстрее. Но возможны дубликаты после сбоя. Используется РЕДКО.
+        4) SESSION_TRANSACTED
+            Вообще нет ACK!
+            Есть commit() или rollback()
+            т.е. commit = ACK
+
+    Механизм работы:
+    т.к. ACK — это часть спецификации JMS.
+        1) Spring вызывает JMS API.
+        2) JMS-клиент отправляет ACK брокеру.
+        3) Artemis реализует эту спецификацию и принимает ACK.
+
+    ВОПРОС: В какой именно момент Spring отправляет ACK? До выхода из метода, после выхода из метода или после возврата управления в контейнер?
+    ОТВЕТ:
+        Spring отправляет ACK после того, как метод полностью завершился и управление вернулось обратно в контейнер JmsListenerEndpointContainer
+        Детальная (примерная) схема:
+            Получение сообщения (JmsListenerEndpointContainer -> MessageConsumer.receive())
+            (здесь сообщение нах-ся в статусе In Delivery или Delivered)
+                    │
+            Десериализация (TextMessage -> MappingJackson2MessageConverter -> OrderCreatedEvent)
+                    │
+            Вызов @JmsListener (т.е. моего метода consume(event))
+                    │
+            МОЙ Метод полностью завершился
+                    │
+            Управление вернулось контейнеру Spring
+                    │
+            Контейнер принимает решение:
+                    │
+               ┌────┴────┐
+            Успех     Exception
+               │         │
+            ACK     Recovery/Rollback
+               │         │
+            Удалить   Повторная
+            сообщение доставка
+
+        т.е. упрощенно:
+            Message message = consumer.receive();
+            Object payload = converter.fromMessage(message);
+            try {
+                listener.invoke(payload);
+                acknowledge();  // или  session.commit();
+            } catch (Exception e) {
+                session.rollback();
+            }
+
+        NOTE: НЕЛЬЗЯ перехватывать и НЕ пробрасывать исключения в consume-методе. Иначе будет отправлен ACK!
+
+Этап 5.2. Headers / message properties
+    Заголовок / свойство	Для чего используется
+    JMSMessageID	Уникальная идентификация сообщения, логирование. НЕ меняется при redelivery!
+    JMSCorrelationID	Request/Reply, связь запроса и ответа
+    JMSRedelivered	Определение повторной доставки (true/false)
+    JMSXDeliveryCount	Логика повторных попыток, мониторинг, алерты
+    JMSReplyTo	Асинхронный ответ на сообщение
+    JMSPriority	Приоритетная обработка
+    JMSExpiration	TTL сообщений
+    JMSDestination	Диагностика и универсальные обработчики
+    JMSTimestamp	Аудит и измерение задержек
