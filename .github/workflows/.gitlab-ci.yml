@@ -52,7 +52,7 @@ jobs:
   
   deploy:
     name: Deploy to Kubernetes
-    needs: docker
+    needs: build
     runs-on:
       - self-hosted
       - windows
