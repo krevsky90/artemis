@@ -1,0 +1,15 @@
+# instead of
+# volumes:
+#   - artemis-data:/var/lib/artemis-instance/data
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  name: {{ include "artemis.fullname" . }}-data
+
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}

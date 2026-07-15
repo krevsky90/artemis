@@ -21,11 +21,11 @@ jobs:
 
       - name: Install PostgreSQL
         run: |
-          helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql -n infra -f helm/infra/values/postgres.yaml
+          helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql --version 18.8.0 -n infra -f helm/infra/values/postgres.yaml
 
-#      - name: Install Artemis
-#        run: |
-#          helm upgrade --install artemis nimtechnology/active-mq -n infra -f helm/infra/values/artemis.yaml
+      - name: Install Artemis
+        run: |
+          helm upgrade --install artemis ./helm/infra/artemis -n infra 
 
 #      - name: Install Kafka
 #        run: |

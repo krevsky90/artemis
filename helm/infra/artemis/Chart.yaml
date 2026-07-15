@@ -1,0 +1,6 @@
+apiVersion: v2
+name: artemis
+description: Apache ActiveMQ Artemis
+type: application
+version: 0.1.0
+appVersion: "2.44.0"

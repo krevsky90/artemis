@@ -1,0 +1,33 @@
+# instead of
+# ./broker/config/broker.xml
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: {{ include "artemis.fullname" . }}-config
+
+data:
+  broker.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+
+    <configuration
+            xmlns="urn:activemq"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+        <core xmlns="urn:activemq:core">
+
+            <name>artemis</name>
+
+            <persistence-enabled>true</persistence-enabled>
+
+            <acceptors>
+
+                <acceptor name="netty">
+                    tcp://0.0.0.0:61616
+                </acceptor>
+
+            </acceptors>
+
+        </core>
+
+    </configuration>

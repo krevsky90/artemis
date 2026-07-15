@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: {{ include "artemis.fullname" . }}
+
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: {{ include "artemis.fullname" . }}
+
+  template:
+    metadata:
+      labels:
+        app: {{ include "artemis.fullname" . }}
+
+    spec:
+      containers:
+        - name: artemis
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: jms
+              containerPort: {{ .Values.service.jmsPort }}
+            - name: console
+              containerPort: {{ .Values.service.consolePort }}
+          env:
+            - name: ARTEMIS_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "artemis.fullname" . }}-secret
+                  key: ARTEMIS_USER
+            - name: ARTEMIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "artemis.fullname" . }}-secret
+                  key: ARTEMIS_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/artemis-instance/data
+            #- name: config
+            #  mountPath: /var/lib/artemis-instance/etc/broker.xml
+            #  subPath: broker.xml
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "artemis.fullname" . }}-data
+        - name: config
+          configMap:
+            name: {{ include "artemis.fullname" . }}-config

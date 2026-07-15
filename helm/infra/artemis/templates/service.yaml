@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: {{ include "artemis.fullname" . }}
+
+spec:
+  type: {{ .Values.service.type }}
+
+  selector:
+    app: {{ include "artemis.fullname" . }}
+
+  ports:
+    - name: jms
+      port: {{ .Values.service.jmsPort }}
+      targetPort: jms
+
+    - name: console
+      port: {{ .Values.service.consolePort }}
+      targetPort: console
