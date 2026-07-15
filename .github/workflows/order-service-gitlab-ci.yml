@@ -6,10 +6,10 @@ on:
       - master
     paths:
       - 'order-service/**'
-      - 'events/**'
+      - 'order-contract/**'
       - 'pom.xml'
       - 'helm/applications/order-service/**'
-      - '.github/workflows/order-service.yml'
+      - '.github/workflows/order-service-gitlab-ci.yml'
 
 jobs:
   build:
