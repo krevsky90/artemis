@@ -1,9 +1,9 @@
 name: Deploy infrastructure
 
 on:
-  # В GitHub появится кнопка.
-  #GitHub -> Actions -> Deploy Infrastructure
-  #[ Run workflow ]
+  # GitHub repo 'artemis' -> Actions
+  # см 'Deploy Infrastructure'
+  # там кнопка [ Run workflow ]
   workflow_dispatch:
 
 jobs:
@@ -15,24 +15,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Add Helm repositories
-        run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          helm repo add nimtechnology https://nimtechnology.github.io/activemq-helm-chart               
-          helm repo update
-          
-
       - name: Create namespaces
         run: |
           kubectl apply -f helm/infrastructure/namespaces/
 
       - name: Install PostgreSQL
         run: |
-          helm upgrade --install postgres bitnami/postgresql -n infra -f helm/infrastructure/values/postgres.yaml
+          helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql -n infra -f helm/infrastructure/values/postgres.yaml
 
-      - name: Install Artemis
-        run: |
-          helm upgrade --install artemis nimtechnology/active-mq -n infra -f helm/infrastructure/values/artemis.yaml
+#      - name: Install Artemis
+#        run: |
+#          helm upgrade --install artemis nimtechnology/active-mq -n infra -f helm/infrastructure/values/artemis.yaml
 
 #      - name: Install Kafka
 #        run: |
