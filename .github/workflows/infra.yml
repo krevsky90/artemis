@@ -26,17 +26,11 @@ jobs:
 
       - name: Install PostgreSQL
         run: |
-          helm upgrade --install postgres \
-            bitnami/postgresql \
-            -n infra \
-            -f helm/infrastructure/values/postgres.yaml
+          helm upgrade --install postgres bitnami/postgresql -n infra -f helm/infrastructure/values/postgres.yaml
 
       - name: Install Artemis
         run: |
-          helm upgrade --install artemis \
-            nimtechnology/active-mq \
-            -n infra \
-            -f helm/infrastructure/values/artemis.yaml
+          helm upgrade --install artemis nimtechnology/active-mq -n infra -f helm/infrastructure/values/artemis.yaml
 
 #      - name: Install Kafka
 #        run: |
