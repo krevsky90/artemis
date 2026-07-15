@@ -40,9 +40,15 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/artemis-instance/data
-            #- name: config
-            #  mountPath: /var/lib/artemis-instance/etc/broker.xml
-            #  subPath: broker.xml
+            - name: config
+              mountPath: /var/lib/artemis-instance/etc/broker.xml
+              subPath: broker.xml
+            - name: config
+              mountPath: /var/lib/artemis-instance/etc/artemis-roles.xml
+              subPath: artemis-roles.xml
+            - name: config
+              mountPath: /var/lib/artemis-instance/etc/artemis-users.xml
+              subPath: artemis-users.xml
       volumes:
         - name: data
           persistentVolumeClaim:
