@@ -1,7 +1,7 @@
 image:
   registry: docker.io
   repository: bitnami/postgresql
-  tag: "18.4.0"
+#  tag: "18.4.0"
 
 auth:
   postgresPassword: postgres
