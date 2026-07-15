@@ -18,7 +18,6 @@ jobs:
       - name: Add Helm repositories
         run: |
           helm repo add bitnami https://charts.bitnami.com/bitnami
-#          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
           helm repo add nimtechnology https://nimtechnology.github.io/activemq-helm-chart               
           helm repo update
           
