@@ -75,7 +75,7 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          helm upgrade --install order-service ./order-service/helm/order-service
+          helm upgrade --install order-service ./helm/applications/order-service
 #          helm upgrade --install order-service ./order-service/helm/order-service \
 #          --set image.repository=krevskiigrigorii/order-service \
 #          --set image.tag=latest \
