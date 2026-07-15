@@ -6,7 +6,9 @@ on:
       - master
     paths:
       - 'order-service/**'
+      # changes in dependencies might influence on order-service
       - 'order-contract/**'
+      # parent pom might influence on order-service
       - 'pom.xml'
       - 'helm/applications/order-service/**'
       - '.github/workflows/order-service-gitlab-ci.yml'

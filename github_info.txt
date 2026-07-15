@@ -1,0 +1,75 @@
+Чтобы создать GitHub Self-hosted runner на моем ноуте:
+0) создать папку c:\actions-runner
+1) открыть репо https://github.com/krevsky90/artemis
+	выбрать Settings -> Actions -> Runners
+	нажать New self-hosted runner, выбрать Windows, x64
+	После этого на той же странице тут же GitHub покажет примерно набор команд типа
+		Download
+		We recommend configuring the runner under "\actions-runner". This will help avoid issues related to service identity folder permissions and long path restrictions on Windows.
+
+		# Create a folder under the drive root
+		$ mkdir actions-runner; cd actions-runner# Download the latest runner package
+		$ Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.335.1/actions-runner-win-x64-2.335.1.zip -OutFile actions-runner-win-x64-2.335.1.zip# Optional: Validate the hash
+		$ if((Get-FileHash -Path actions-runner-win-x64-2.335.1.zip -Algorithm SHA256).Hash.ToUpper() -ne 'eb65c95277af42bcf3778a799c41359d224ba2a67b4de26b7cea1729b09c803d'.ToUpper()){ throw 'Computed checksum did not match' }# Extract the installer
+		$ Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD/actions-runner-win-x64-2.335.1.zip", "$PWD")
+		Configure
+		# Create the runner and start the configuration experience
+		$ ./config.cmd --url https://github.com/krevsky90/artemis --token ANAC3ZN2TUX33HSCBBU2BCDKKZ2BG# Run it!
+		$ ./run.cmd
+		Using your self-hosted runner
+		# Use this YAML in your workflow file for each job
+		runs-on: self-hosted
+
+	выполнить указанные команды из папки c:\actions-runner\
+		URL = https://github.com/krevsky90/artemis
+		Runner name = Runner name или home-runner
+		Runner group - оставляем дефолтный
+		Labels = windows,docker,kubernetes
+		Work folder - оставляем дефолтный (_work)
+
+2) запустить c:\actions-runner\run.cmd
+	Если всё хорошо, увидишь
+		Connected to GitHub
+		Listening for Jobs
+
+	в GitHub по пути Settings -> Actions -> Runners становится виден home-runner
+
+3) в Windows команды типа java -version выполняются через PowerShell. Для этого надо дать права. Иначе шаги из GitHub не смогут выполнить такие команды.
+	а) открыть PowerShell ОТ ИМЕНИ АДМИНИСТРАТОРА и убедиться, что Get-ExecutionPolicy выдает Restricted
+	b) выполнить Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+	с) проверить, что Get-ExecutionPolicy выдает RemoteSigned
+
+4) закоммитить что-то в master:
+	- в запущенном run.cmd увидим джобу
+	- в Github можно посмотреть результаты CI шагов: https://github.com/krevsky90/artemis/actions
+
+- - - - - -
+Для того, чтобы в шаге CI/CD процесса gitHub мог выкачивать и пушить образы в Docker hub,
+    нужно залогиниться в докер (uses: docker/login-action@v3). Для этого нужно
+    1. Создать Personal Access Token в Docker-е:
+    	1) зайти в Docker
+    	Avatar -> Account Settings -> Personal access tokens
+    	т.е.
+    	https://app.docker.com/accounts/krevskiigrigorii/settings/account-information
+
+    	2) нажать Generate new token
+    		заполнить Token description типа github-actions-artemis
+    		выбрать 'Read & Write' в Access permissions
+    		нажать Generate
+
+    	3) НЕ ЗАКРЫВАЯ СТРАНИЦУ, сохранить токен. типа dckr_pat_.....
+
+
+    Добавить Personal Access Token в GitHub Secrets:
+    	1) зайти в https://github.com/krevsky90/artemis/settings/secrets/actions
+    	2) создать 2 repository secrets:
+    		DOCKER_USERNAME = krevskiigrigorii (т.е. логин в docker)
+    		DOCKER_PASSWORD = Personal Access Token, сгенеренный в Docker-е с описанием github-actions-artemis
+
+Для того, чтобы в шаге CI/CD процесса gitHub мог деплоить в кубернетес, нужно
+    Добавить KUBECONFIG_CONTENT в GitHub Secrets с контентом файла C:\Users\krevs\.kube\config
+
+NOTE: job-ы независимы. поэтому если build джоба создала target папки с jar внутри,
+    а джоба deploy сделала чекаут, то этот чекаут очистит _work папку вместе с jar и деплоить будет нечего!
+    РЕШЕНИЕ 1: объединить шаги джоб в рамках одной джобы
+    РЕШЕНИЕ 2: в джобе build публиковать собранные артефакты куда-то (скажем, nexus), а в deploy джобе - скачивать артефакт и деплоить его
