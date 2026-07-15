@@ -73,9 +73,9 @@ jobs:
         run: |
             kubectl get nodes
 
-#      - name: Deploy with Helm
-#        run: |
-#          helm upgrade --install order-service ./order-service/helm/order-service
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install order-service ./order-service/helm/order-service
 #          helm upgrade --install order-service ./order-service/helm/order-service \
 #          --set image.repository=krevskiigrigorii/order-service \
 #          --set image.tag=latest \
