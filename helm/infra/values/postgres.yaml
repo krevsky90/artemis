@@ -1,6 +1,6 @@
 image:
   registry: docker.io
-  repository: bitnami/postgresql
+  repository: postgres
   tag: "15"
 
 auth:
