@@ -34,9 +34,7 @@ spec:
               fi
 
               echo "Copying custom configuration"
-              cp /config/broker.xml /var/lib/artemis-instance/etc/broker.xml
-              cp /config/artemis-users.properties /var/lib/artemis-instance/etc/artemis-users.properties
-              cp /config/artemis-roles.properties /var/lib/artemis-instance/etc/artemis-roles.properties
+              cp /config/* /var/lib/artemis-instance/etc/
 
           env:
             - name: ARTEMIS_USER
@@ -66,6 +64,7 @@ spec:
             - name: console
               containerPort: {{ .Values.service.consolePort }}
 
+          # env is not used in deployment but might be used by image itself
           env:
             - name: ARTEMIS_USER
               valueFrom:
