@@ -1,0 +1,125 @@
+=================== КАК запускается Pod (на примере artemis) ===================
+info:
+https://chatgpt.com/c/6a50c7d5-b834-83eb-93ea-04b0b6095015
+
+    Жизненный цикл:
+    Pod создается
+          |
+    initContainer #1
+          |
+    initContainer #2
+          |
+    ВСЕ успешно завершились
+          |
+    Запускаются обычные containers
+          |
+    Pod Ready
+
+NOTE: Ни один обычный контейнер не запустится, пока все initContainer не завершатся успешно.
+
+В случае Artemis:
+    Pod стартует
+            |
+    initContainer
+            |
+            |  копирует broker.xml
+            |  копирует users/roles
+            |
+    основной контейнер Artemis
+            |
+
+    читает уже измененные конфиги
+            |
+    стартует
+
+
+Т.е. внутри Pod может быть несколько контейнеров.
+initContainer-ы - для подготовки окружения.
+    т.е., например,
+    скачать дамп БД
+    ↓
+    распаковать
+    ↓
+    запустить PostgreSQL
+
+Каждый initContainer - для отдельной логической задачи.
+
+На примере helm/infra/artemis/templates/deployment.yaml
+
+1) Kubernetes создает Pod
+2) Kubernetes создает PVC
+    volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "artemis.fullname" . }}-data
+2.2) и configmap
+      - name: config
+        configMap:
+          name: {{ include "artemis.fullname" . }}-config
+3) Kubernetes монтирует PVC:
+    volumeMounts:
+      - name: data
+        mountPath: /var/lib/artemis-instance
+NOTE: во время монтирования папка /var/lib/artemis-instance появляется автоматически как точка монтирования! Но он пустой! Без bin, etc, data, lib
+3.2) Kubernetes монтирует config в папку /config
+4) Запускается initContainer
+    выполняется /opt/activemq-artemis/bin/artemis create /var/lib/artemis-instance
+    к-ая создает
+        /var/lib/artemis-instance
+        ├── bin
+        ├── etc
+        ├── data
+        ├── lib
+        ├── log
+        └── tmp
+4.2) выполняется точечное копирование файлов из /config в /var/lib/artemis-instance/etc/
+    типа cp /config/broker.xml /var/lib/artemis-instance/etc/broker.xml
+    NOTE: если просто написать типа cp /config /var/lib/artemis-instance/etc
+
+НА ЭТОМ РАБОТА initContainer-а заканчивается! и он переходит в статус
+
+5) запускается обычный container 'artemis'
+    к нему монтируется тот самый PVC data в папку /var/lib/artemis-instance
+    в этом PVC уже есть все необходимое, приготовленное initContainer-ом
+
+    выставляются порты
+
+    стартует artemis
+
+=================== Полезные команды ===================
+Запуск контейнера из имаджа artemis (можно без -rm):
+    kubectl run artemis-debug -n infra --rm -it --image=apache/activemq-artemis:2.44.0 --command -- sh
+
+Посмотреть логи:
+    kubectl logs artemis-debug -n infra
+
+Посмотреть логи контейнера init-artemis в поде artemis-7ccbf9f5fb-66nc5:
+	kubectl logs artemis-7ccbf9f5fb-66nc5 -n infra -c init-artemis
+
+Посмотреть итоговую конфигурацию поды artemis-7ccbf9f5fb-66nc5:
+    kubectl describe pod artemis-7ccbf9f5fb-66nc5 -n infra
+
+Временно выставить порт для доступа/отладки приложения:
+    kubectl port-forward service/artemis 8161:8161 -n infra
+
+=================== Установка с помощью Helm ===================
+Helm:
+info: https://chatgpt.com/c/6a50951b-f3b8-83ed-bf35-6a89f8737117
+
+1) создаем в корне проекта папку helm
+2) в helm папке выполняем команду
+        helm create order-service
+    она создает структуру папок и файлов helm chart-а, которыую при желании можно потом поменять.
+
+Если хотим деплоить в кубер вручную, то выполняем:
+    helm install order-service ./order-service
+Если поменяли что-то в helm chart-е, то выполняем:
+    helm upgrade order-service ./order-service
+Чтобы удалить все сущности сервиса:
+    helm uninstall order-service
+
+Как проверить, что конфигурация helm корректна:
+1) проверка синтаксиса:
+    helm lint ./helm/infra/artemis
+2) проверка результирующих кубер файлов:
+    helm template artemis ./helm/infra/artemis -f ./helm/infra/artemis/values.yaml
