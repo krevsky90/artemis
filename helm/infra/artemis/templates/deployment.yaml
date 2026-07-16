@@ -17,15 +17,22 @@ spec:
         app: {{ include "artemis.fullname" . }}
 
     spec:
-      containers:
-        - name: artemis
+      initContainers:
+        - name: init-artemis
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: jms
-              containerPort: {{ .Values.service.jmsPort }}
-            - name: console
-              containerPort: {{ .Values.service.consolePort }}
+
+          command:
+            - sh
+            - -c
+            - |
+              echo "Creating Artemis instance"
+              artemis create /var/lib/artemis-instance --user ${ARTEMIS_USER} --password ${ARTEMIS_PASSWORD} --silent
+
+              echo "Copying custom configuration"
+              cp /config/broker.xml /var/lib/artemis-instance/etc/broker.xml
+              cp /config/artemis-users.properties /var/lib/artemis-instance/etc/artemis-users.properties
+              cp /config/artemis-roles.properties /var/lib/artemis-instance/etc/artemis-roles.properties
+
           env:
             - name: ARTEMIS_USER
               valueFrom:
@@ -37,18 +44,39 @@ spec:
                 secretKeyRef:
                   name: {{ include "artemis.fullname" . }}-secret
                   key: ARTEMIS_PASSWORD
+
           volumeMounts:
             - name: data
-              mountPath: /var/lib/artemis-instance/data
+              mountPath: /var/lib/artemis-instance
             - name: config
-              mountPath: /var/lib/artemis-instance/etc/broker.xml
-              subPath: broker.xml
-            - name: config
-              mountPath: /var/lib/artemis-instance/etc/artemis-roles.properties
-              subPath: artemis-roles.properties
-            - name: config
-              mountPath: /var/lib/artemis-instance/etc/artemis-users.properties
-              subPath: artemis-users.properties
+              mountPath: /config
+
+      containers:
+        - name: artemis
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: jms
+              containerPort: {{ .Values.service.jmsPort }}
+            - name: console
+              containerPort: {{ .Values.service.consolePort }}
+
+          env:
+            - name: ARTEMIS_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "artemis.fullname" . }}-secret
+                  key: ARTEMIS_USER
+            - name: ARTEMIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "artemis.fullname" . }}-secret
+                  key: ARTEMIS_PASSWORD
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/artemis-instance
+
       volumes:
         - name: data
           persistentVolumeClaim:
