@@ -6,13 +6,13 @@ services:
     environment:
       ARTEMIS_USER: admin
       ARTEMIS_PASSWORD: admin
-#    volumes:
-#      # configuration - mount to laptop's disk
+    # volumes:
+      # configuration - mount to laptop's disk
 #      - ./broker/config/broker.xml:/var/lib/artemis-instance/etc/broker.xml
 #      - ./broker/config/artemis-users.properties:/var/lib/artemis-instance/etc/artemis-users.properties
 #      - ./broker/config/artemis-roles.properties:/var/lib/artemis-instance/etc/artemis-roles.properties
-#      # data - mount to docker's volume
-#      - artemis-data:/var/lib/artemis-instance/data
+      # data - mount to docker's volume
+      #- artemis-data:/var/lib/artemis-instance/data
     ports:
       - "61616:61616" # JMS
       - "8161:8161"   # Web Console
@@ -34,7 +34,8 @@ services:
     build: ./order-service
     container_name: order-service
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+#      SPRING_PROFILES_ACTIVE: docker
+      ARTEMIS_URL: tcp://artemis:61616
     ports:
       - "8081:8081"
     depends_on:

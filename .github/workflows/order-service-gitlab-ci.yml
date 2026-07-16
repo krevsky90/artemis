@@ -73,7 +73,7 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          helm upgrade --install order-service ./helm/applications/order-service --set image.tag=${{ github.sha }}
+          helm upgrade --install order-service ./helm/applications/order-service --set image.tag=${{ github.sha }} --namespace apps
 #          helm upgrade --install order-service ./order-service/helm/order-service \
 #          --set image.repository=krevskiigrigorii/order-service \
 #          --set image.tag=latest \

@@ -60,7 +60,7 @@ service:
 # container published by Docker Desktop on the host. When Artemis is deployed
 # in the same Kubernetes namespace, set it to tcp://artemis:61616 instead.
 artemis:
-  brokerUrl: tcp://host.docker.internal:61616
+  brokerUrl: tcp://artemis.infra:61616
   credentials:
     # Set this to reuse a Secret that has `username` and `password` keys.
     # Leave blank to let this chart create the Secret from the values below.
