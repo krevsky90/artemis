@@ -38,17 +38,15 @@ spec:
                   name: {{ include "artemis.fullname" . }}-secret
                   key: ARTEMIS_PASSWORD
           volumeMounts:
-            - name: data
-              mountPath: /var/lib/artemis-instance/data
             - name: config
               mountPath: /var/lib/artemis-instance/etc/broker.xml
               subPath: broker.xml
             - name: config
-              mountPath: /var/lib/artemis-instance/etc/artemis-roles.xml
-              subPath: artemis-roles.xml
+              mountPath: /var/lib/artemis-instance/etc/artemis-roles.properties
+              subPath: artemis-roles.properties
             - name: config
-              mountPath: /var/lib/artemis-instance/etc/artemis-users.xml
-              subPath: artemis-users.xml
+              mountPath: /var/lib/artemis-instance/etc/artemis-users.properties
+              subPath: artemis-users.properties
       volumes:
         - name: data
           persistentVolumeClaim:
