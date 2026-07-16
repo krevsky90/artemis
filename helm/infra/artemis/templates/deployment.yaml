@@ -25,8 +25,13 @@ spec:
             - sh
             - -c
             - |
-              echo "Creating Artemis instance"
-              artemis create /var/lib/artemis-instance --user ${ARTEMIS_USER} --password ${ARTEMIS_PASSWORD} --silent
+              set -e
+              if [ ! -f /var/lib/artemis-instance/bin/artemis ]; then
+                echo "Creating Artemis instance"
+                /opt/activemq-artemis/bin/artemis create /var/lib/artemis-instance --user ${ARTEMIS_USER} --password ${ARTEMIS_PASSWORD} --silent
+              else
+                echo "Artemis instance already exists"
+              fi
 
               echo "Copying custom configuration"
               cp /config/broker.xml /var/lib/artemis-instance/etc/broker.xml
