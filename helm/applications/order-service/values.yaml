@@ -61,12 +61,7 @@ service:
 # in the same Kubernetes namespace, set it to tcp://artemis:61616 instead.
 artemis:
   brokerUrl: tcp://artemis.infra:61616
-  credentials:
-    # Set this to reuse a Secret that has `username` and `password` keys.
-    # Leave blank to let this chart create the Secret from the values below.
-    existingSecret: ""
-    username: admin
-    password: admin
+  secretName: artemis-secret
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:

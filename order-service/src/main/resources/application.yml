@@ -10,8 +10,8 @@ spring:
     mode: native
     broker-url: ${ARTEMIS_URL}
     # user and password - that are created by docker-compose file
-    user: admin
-    password: admin
+    user: ${ARTEMIS_USER}
+    password: ${ARTEMIS_PASSWORD}
 
 #  jms:
 #    listener:

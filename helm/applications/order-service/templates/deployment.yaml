@@ -50,12 +50,12 @@ spec:
             - name: SPRING_ARTEMIS_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "order-service.artemisSecretName" . }}
+                  name: {{ .Values.artemis.secretName }}
                   key: username
             - name: SPRING_ARTEMIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "order-service.artemisSecretName" . }}
+                  name: {{ .Values.artemis.secretName }}
                   key: password
           {{- with .Values.livenessProbe }}
           livenessProbe:
