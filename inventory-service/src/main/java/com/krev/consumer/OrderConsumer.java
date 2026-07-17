@@ -30,12 +30,12 @@ public class OrderConsumer {
 
         log.info("Thread={} received order={}", thread, event.orderId());
 
-        throw new RuntimeException("Inventory service failed");
-//        processInventory(event);
-//
-//        Thread.sleep(3000);
-//
-//        log.info("Thread={} finished order={}", thread, event.orderId());
+//        throw new RuntimeException("Inventory service failed");
+        processInventory(event);
+
+        Thread.sleep(3000);
+
+        log.info("Thread={} finished order={}", thread, event.orderId());
     }
 
     private void processInventory(OrderCreatedEvent event) {
