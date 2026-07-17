@@ -1,3 +1,112 @@
+=================== КАК работает ingress ===================
+Схема трафика через ингресс в спрингбут приложение, если указываем имя порта (http), а не номер
+order-service.local:80
+	  |
+	  v
+NGINX Ingress Controller
+(192.168.1.100:80, т.к. 80 - порт для http)
+Что делает:
+	Пришел запрос на order-service.local
+	путь начинается с /
+	отправляю в сервис order-service.local
+	на порт с именем http
+	  |
+	  |
+	  |
+	  | с помощью Ingress rule
+	  |     - host: order-service.local
+	  |		  http:
+	  |			paths:
+	  |			  - path: /
+	  |				pathType: Prefix
+	  |				backend:
+	  |				  service:
+	  |					name: order-service
+	  |					port:
+	  |					  name: http
+	  |
+	  |
+	  | ищет Service port с именем "http"
+	  |
+	  v
+Service:
+	...
+	ports:
+    - port: {{ .Values.service.port }}	# т.е., например, 80
+      targetPort: application-port 	#  указывает на порт, который слушает приложение внутри контейнера)
+									# NOTE: Очень часто это тот же порт, который указан в EXPOSE, но Kubernetes не читает Dockerfile => не использует EXPOSE при работе.
+      protocol: TCP
+      name: http
+	  |
+	  |
+	  | ищет Pod port с именем "application-port"
+	  |
+	  v
+Pod (based on Deployment)
+	...
+	containers:
+	  - name: {{ .Chart.Name }}
+        ports:
+          - name: application-port
+            containerPort: {{ .Values.container.port }}	# т.е. 8081
+            protocol: TCP
+	  |
+	  v
+Spring Boot (8081)
+
+НО best practice - называть порты одинаково и в сервисе, и в деплойменте, чтобы была простая цепочка: http -> http -> 8081
+
+Итого:
+| Уровень          | Значение                 | Где задан                      |
+| ---------------- | -------------------------| ------------------------------ |
+| Внешний HTTP     | 80                       | Ingress Controller             |
+| Service port     | 80                       | service.yaml                   |
+| targetPort       | http -> 8081             | service.yaml + deployment.yaml |
+| containerPort    | application-port -> 8081 | deployment.yaml                |
+| Spring Boot port | 8081                     | application.properties         |
+
+
+Логика:
+Ingress знает только про Service.
+Service знает только про Pod.
+Pod знает только про приложение.
+Каждый слой имеет свой порт.
+
+ПРОФИТ в именах портов - можно изменить внутренний порт контейнера, и не нужно нигде это менять, кроме Deployment-а. т.е. Service не трогаем, например.
+
+Правила:
+    имя порта должно соответствовать требованиям Kubernetes:
+    только строчные буквы; цифры; -;
+    максимум 15 символов.
+
+- - - - - - - - - - - - - - - - - - - -
+КАК достучаться до сервиса, имеющего ингресс, с локального хоста.
+ПРОБЛЕМА
+	При отправке REST запроса получаю ошибку
+	java.net.UnknownHostException: Этот хост неизвестен (order-service.local)
+ПРИЧИНА:
+	Ingress не создает DNS-запись. Он только говорит:
+	"Если придет HTTP-запрос с заголовком Host: order-service.local, то направить его в Service order-service."
+	Но кто-то еще должен суметь преобразовать имя order-service.local в IP-адрес ingress-контроллера.
+	Процесс:
+		POST http://order-service.local/api/orders
+				│
+		Windows пытается найти IP для order-service.local
+				│
+		DNS отвечает: такого имени нет
+				│
+		UnknownHostException
+
+	До Kubernetes запрос вообще не дошел.
+
+РЕШЕНИЕ:
+	1) Запустить Блокнот от имени администратора
+	2) Открыть файл C:\Windows\System32\drivers\etc\hosts
+		добавить в низ файла строку
+		127.0.0.1 order-service.local
+		сохранить и закрыть
+	3) Проверить, что DNS работает: в cmd выполнить ping order-service.local
+
 =================== КАК запускается Pod (на примере artemis) ===================
 info:
 https://chatgpt.com/c/6a50c7d5-b834-83eb-93ea-04b0b6095015
@@ -85,6 +194,24 @@ NOTE: во время монтирования папка /var/lib/artemis-insta
     выставляются порты
 
     стартует artemis
+
+=================== КАК определить, как построить DNS-имя ===================
+	1) выполнить
+	kubectl get svc -A
+	результат:
+		NAMESPACE     NAME              TYPE        CLUSTER-IP      PORT(S)
+		infra     artemis           ClusterIP   10.96.125.42    61616/TCP
+
+	2) Полное DNS-имя строится по шаблону:
+		<service>.<namespace>.svc.cluster.local
+		но <service>.<namespace> тоже сработает
+
+	3) А в application.properties сервиса пишем spring.artemis.broker-url=tcp://artemis.infra:61616 или параметризуем
+
+
+=================== КАК открыть Web Console artemis-a ===================
+	1) kubectl port-forward svc/artemis 8161:8161 -n infra
+	2) открыть в браузере http://localhost:8161
 
 =================== Полезные команды ===================
 Запуск контейнера из имаджа artemis (можно без -rm):
