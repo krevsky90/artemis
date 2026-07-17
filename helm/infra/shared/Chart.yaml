@@ -1,0 +1,6 @@
+apiVersion: v2
+name: shared
+description:  Shared Kubernetes resources for applications
+type: application
+version: 0.1.0
+appVersion: "1.0"

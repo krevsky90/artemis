@@ -19,13 +19,17 @@ jobs:
         run: |
           kubectl apply -f helm/infra/namespaces/
 
+      - name: Create shared infra secrets
+        run: |
+          helm upgrade --install shared ./helm/infra/shared -n apps
+
       - name: Install PostgreSQL
         run: |
           helm upgrade --install postgres oci://registry-1.docker.io/bitnamicharts/postgresql --version 18.8.0 -n infra -f helm/infra/values/postgres.yaml
 
       - name: Install Artemis
         run: |
-          helm upgrade --install artemis ./helm/infra/artemis -n infra 
+          helm upgrade --install artemis ./helm/infra/artemis -n infra
 
 #      - name: Install Kafka
 #        run: |

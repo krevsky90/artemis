@@ -1,0 +1,10 @@
+namespace: apps
+
+artemis:
+  username: admin
+  password: admin
+
+postgres:
+  username: postgres
+  password: postgres
+  database: inventory_db
