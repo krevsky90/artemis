@@ -3,7 +3,7 @@ name: CI/CD Inventory Service
 on:
   push:
     branches:
-      - move_inventory_service_to_k8s
+      - master
     paths:
       - 'inventory-service/**'
       # changes in dependencies might influence on order-service
