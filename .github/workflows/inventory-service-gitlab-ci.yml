@@ -1,0 +1,81 @@
+name: CI/CD Inventory Service
+
+on:
+  push:
+    branches:
+      - move_inventory_service_to_k8s
+    paths:
+      - 'inventory-service/**'
+      # changes in dependencies might influence on order-service
+      - 'order-contract/**'
+      # parent pom might influence on order-service
+      - 'pom.xml'
+      - 'helm/applications/inventory-service/**'
+      - '.github/workflows/inventory-service-gitlab-ci.yml'
+
+jobs:
+  build:
+    name: Build, Push Docker Image
+    runs-on:
+      - self-hosted
+      - windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn clean verify -DskipTests
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t krevskiigrigorii/inventory-service:${{ github.sha }} inventory-service
+
+      - name: Push Docker image
+        run: |
+          docker push krevskiigrigorii/inventory-service:${{ github.sha }}
+  
+  deploy:
+    name: Deploy to Kubernetes
+    needs: build
+    runs-on:
+      - self-hosted
+      - windows
+    env:
+      KUBECONFIG: ${{ github.workspace }}\kubeconfig.yaml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure kubeconfig
+        shell: powershell
+        run: |
+            "${{ secrets.KUBECONFIG_CONTENT }}" | Out-File `
+            -FilePath $env:KUBECONFIG `
+            -Encoding utf8
+
+      - name: Kubernetes check
+        run: |
+            kubectl get nodes
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install inventory-service ./helm/applications/inventory-service --set image.tag=${{ github.sha }} --namespace apps
+#          helm upgrade --install order-service ./order-service/helm/order-service \
+#          --set image.repository=krevskiigrigorii/order-service \
+#          --set image.tag=latest \
+#          --namespace default \
+#          --create-namespace

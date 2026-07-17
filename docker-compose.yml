@@ -36,6 +36,8 @@ services:
     environment:
 #      SPRING_PROFILES_ACTIVE: docker
       ARTEMIS_URL: tcp://artemis:61616
+      ARTEMIS_USER: admin
+      ARTEMIS_PASSWORD: admin
     ports:
       - "8081:8081"
     depends_on:
@@ -48,7 +50,10 @@ services:
     build: ./inventory-service
     container_name: inventory-service
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+#      SPRING_PROFILES_ACTIVE: docker
+      ARTEMIS_URL: tcp://artemis:61616
+      ARTEMIS_USER: admin
+      ARTEMIS_PASSWORD: admin
 #    ports:
 #      - "8082:8082"
     depends_on:

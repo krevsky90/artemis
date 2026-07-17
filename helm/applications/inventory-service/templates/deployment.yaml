@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: inventory-service
+  template:
+    metadata:
+      labels:
+        app: inventory-service
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort.port }}
+              protocol: TCP
+          env:
+            - name: SPRING_ARTEMIS_BROKER_URL
+              value: {{ .Values.artemis.brokerUrl | quote }}
+            - name: SPRING_ARTEMIS_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.artemis.secretName }}
+                  key: username
+            - name: SPRING_ARTEMIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.artemis.secretName }}
+                  key: password
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
