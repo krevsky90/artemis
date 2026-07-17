@@ -10,10 +10,6 @@ image:
 containerPort:
   port: 8082
 
-service:
-  type: ClusterIP
-  port: 8081
-
 artemis:
   brokerUrl: tcp://artemis.infra:61616
   secretName: artemis-secret
