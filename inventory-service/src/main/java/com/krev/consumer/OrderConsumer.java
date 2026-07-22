@@ -21,16 +21,16 @@ public class OrderConsumer {
     public void consume(OrderCreatedEvent event, Message message) throws InterruptedException, JMSException {
         String thread = Thread.currentThread().getName();
 
-        log.info("============== Main message properties/headers: ==============");
-        log.info("MessageId={}", message.getJMSMessageID());
-        log.info("CorrelationId={}", message.getJMSCorrelationID());
-        log.info("Redelivered={}", message.getJMSRedelivered());
-        log.info("DeliveryCount={}", message.getIntProperty("JMSXDeliveryCount"));
-        log.info("ReplyTo={}", message.getJMSReplyTo());
-        log.info("Priority={}", message.getJMSPriority());
-        log.info("Expiration={}", message.getJMSExpiration());
-        log.info("Destination={}", message.getJMSDestination());
-        log.info("Timestamp={}", message.getJMSTimestamp());
+//        log.info("============== Main message properties/headers: ==============");
+//        log.info("MessageId={}", message.getJMSMessageID());
+//        log.info("CorrelationId={}", message.getJMSCorrelationID());
+//        log.info("Redelivered={}", message.getJMSRedelivered());
+//        log.info("DeliveryCount={}", message.getIntProperty("JMSXDeliveryCount"));
+//        log.info("ReplyTo={}", message.getJMSReplyTo());
+//        log.info("Priority={}", message.getJMSPriority());
+//        log.info("Expiration={}", message.getJMSExpiration());
+//        log.info("Destination={}", message.getJMSDestination());
+//        log.info("Timestamp={}", message.getJMSTimestamp());
 
 //        System.out.println("New order created: " + event);
 

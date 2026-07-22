@@ -1,0 +1,4 @@
+image:
+  repository: inventory-service
+  pullPolicy: IfNotPresent
+  tag: latest

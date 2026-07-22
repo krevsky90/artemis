@@ -253,11 +253,14 @@ NOTE: во время монтирования папка /var/lib/artemis-insta
 	2) открыть в браузере http://localhost:8161
 
 =================== Полезные команды ===================
+Как зайти в контейнер поды:
+    kubectl exec -it <pod-name> -n <your_namespace> -- /bin/sh (или /bin/bash)
+
 Запуск контейнера из имаджа artemis (можно без -rm):
     kubectl run artemis-debug -n infra --rm -it --image=apache/activemq-artemis:2.44.0 --command -- sh
 
 Посмотреть логи:
-    kubectl logs artemis-debug -n infra
+    kubectl logs artemis -n infra
 
 Посмотреть логи контейнера init-artemis в поде artemis-7ccbf9f5fb-66nc5:
 	kubectl logs artemis-7ccbf9f5fb-66nc5 -n infra -c init-artemis
@@ -267,6 +270,8 @@ NOTE: во время монтирования папка /var/lib/artemis-insta
 
 Временно выставить порт для доступа/отладки приложения:
     kubectl port-forward service/artemis 8161:8161 -n infra
+    ИЛИ
+    kubectl port-forward svc/artemis 8161:8161 -n infra
 
 =================== Установка с помощью Helm ===================
 Helm:
@@ -289,3 +294,25 @@ info: https://chatgpt.com/c/6a50951b-f3b8-83ed-bf35-6a89f8737117
     helm lint ./helm/infra/artemis
 2) проверка результирующих кубер файлов:
     helm template artemis ./helm/infra/artemis -f ./helm/infra/artemis/values.yaml
+
+=================== Как быстро применить изменения сервиса к локальному кубернетесу ===================
+1) собрать jar
+mvn -pl inventory-service -am package
+2) сбилдить образ локально, дав ему devX тег
+docker build -t inventory-service:dev2 inventory-service
+3) создать values-local.yaml, где образ будет тянуться из локального репозитория docker desktop-a:
+	image:
+	  repository: inventory-service
+	  pullPolicy: IfNotPresent
+	  tag: latest
+
+4) пересоздать deployment и поду из нового имаджа:
+helm upgrade --install inventory-service ./helm/applications/inventory-service -n apps -f ./helm/applications/inventory-service/values-local.yaml --set image.tag=dev2
+
+ПРОВЕРКА, что применился нужный образ к деплойменту inventory-service:
+kubectl get deployment inventory-service -n apps -o jsonpath="{.spec.template.spec.containers[0].image}"
+
+ОБРАТНЫЙ возврат к использованию remote image (на примере latest):
+helm upgrade --install inventory-service ./helm/applications/inventory-service -n apps --reset-values --set image.tag=latest
+
+===================

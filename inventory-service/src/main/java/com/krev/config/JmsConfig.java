@@ -2,8 +2,10 @@ package com.krev.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.krev.order.contract.OrderCreatedEvent;
+import jakarta.jms.ConnectionFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
 
@@ -31,5 +33,18 @@ public class JmsConfig {
         );
 
         return converter;
+    }
+
+    @Bean
+    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(ConnectionFactory connectionFactory, MessageConverter converter) {
+        DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
+
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(converter);
+
+        // turn on JMS transactions
+        factory.setSessionTransacted(true);
+
+        return factory;
     }
 }
