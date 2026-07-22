@@ -1,6 +1,7 @@
 package com.krev.consumer;
 
 import com.krev.order.contract.OrderCreatedEvent;
+import com.krev.service.OrderProcessor;
 import jakarta.jms.JMSException;
 import jakarta.jms.Message;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,11 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class OrderConsumer {
+    private final OrderProcessor orderProcessor;
+
+    public OrderConsumer(OrderProcessor orderProcessor) {
+        this.orderProcessor = orderProcessor;
+    }
 
     @JmsListener(destination = "${messaging.queues.orders}")
     public void consume(OrderCreatedEvent event, Message message) throws InterruptedException, JMSException {
@@ -26,19 +32,17 @@ public class OrderConsumer {
         log.info("Destination={}", message.getJMSDestination());
         log.info("Timestamp={}", message.getJMSTimestamp());
 
-        System.out.println("New order created: " + event);
+//        System.out.println("New order created: " + event);
 
         log.info("Thread={} received order={}", thread, event.orderId());
 
 //        throw new RuntimeException("Inventory service failed");
-        processInventory(event);
+        orderProcessor.process(event);
 
-        Thread.sleep(3000);
+//        Thread.sleep(3000);
 
         log.info("Thread={} finished order={}", thread, event.orderId());
     }
 
-    private void processInventory(OrderCreatedEvent event) {
-        System.out.println("Received product: " + event.product());
-    }
+
 }
