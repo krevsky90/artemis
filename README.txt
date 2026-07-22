@@ -20,6 +20,15 @@
     Для этого:
         создать JmsConfig с MappingJackson2MessageConverter
 
+ПРОБЛЕМА 2:
+    переименовал БД постгреса в helm postres.yaml,
+    в кубере сделал helm uninstall postgres -n infra,
+    поставил заново инфру - а БД inventory_db не создалась. И по-прежнему имеется orders_db
+РЕШЕНИЕ:
+    после helm uninstall еще нужно дополнительно УДАЛИТЬ PVC!
+
+=============================================
+
 КАК сохранить конфиги artemis в своем проекте и в дальшейшем artemis подхватывал именно их:
 1) скопировать дефолтные конфиги артемиса в локальный проект:
     docker cp artemis:/var/lib/artemis-instance/etc ./broker/config
