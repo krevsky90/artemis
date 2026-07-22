@@ -39,6 +39,12 @@
             <artifactId>spring-boot-starter-json</artifactId>
         </dependency>
 
+        <!-- logging -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
