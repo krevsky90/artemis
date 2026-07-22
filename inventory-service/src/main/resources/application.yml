@@ -24,5 +24,11 @@ spring:
 #      receive-timeout: 5000
 #      qos-enabled: true
 
+  datasource:
+    url: ${DB_HOST:jdbc:postgresql://localhost:5432/inventory_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
 server:
   port: 8082

@@ -35,6 +35,18 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.artemis.secretName }}
                   key: password
+            - name: SPRING_DATASOURCE_URL
+              value: {{ .Values.inventory_postgres.url | quote }}
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: password
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

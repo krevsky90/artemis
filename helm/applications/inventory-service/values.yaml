@@ -14,6 +14,10 @@ artemis:
   brokerUrl: tcp://artemis.infra:61616
   secretName: artemis-secret
 
+inventory_postgres:
+  url: jdbc:postgresql://postgres-postgresql.infra:5432/inventory_db
+  secretName: postgres-secret
+
 livenessProbe:
   tcpSocket:
     port: http

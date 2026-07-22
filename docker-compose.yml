@@ -54,6 +54,10 @@ services:
       ARTEMIS_URL: tcp://artemis:61616
       ARTEMIS_USER: admin
       ARTEMIS_PASSWORD: admin
+      # NOTE: there is no inventory-postgres right now! this is template for possible future
+      DB_HOST: jdbc:postgresql://inventory-postgres:5432/inventory_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
 #    ports:
 #      - "8082:8082"
     depends_on:
