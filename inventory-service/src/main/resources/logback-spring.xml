@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty
+            scope="context"
+            name="appName"
+            source="spring.application.name"/>
+    <!-- ========================= -->
+    <!-- JSON CONSOLE APPENDER -->
+    <!-- ========================= -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp/>
+                <pattern>
+                    <pattern>
+                        {
+                        "service":"${appName}",
+                        "level":"%level",
+                        "thread":"%thread",
+                        "logger":"%logger",
+                        "message":"%message",
+                        "traceId":"%X{trace_id:-}",
+                        "spanId":"%X{span_id:-}"
+                        }
+                    </pattern>
+                    <!-- example of row -->
+                    <!-- {
+                          "service":"inventory-service",
+                          "level":"INFO",
+                          "thread":"kafka-listener-1",
+                          "logger":"com.yourcompany.inventory.OrderConsumer",
+                          "message":"Processing order",
+                          "traceId":"abc123",
+                          "spanId":"def456"
+                        }
+                    -->
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+    <!-- ========================= -->
+    <!-- ROOT -->
+    <!-- ========================= -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
