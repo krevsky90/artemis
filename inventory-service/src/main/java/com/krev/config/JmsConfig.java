@@ -36,22 +36,6 @@ public class JmsConfig {
     }
 
     @Bean
-    public DefaultJmsListenerContainerFactory topicListenerFactory(ConnectionFactory connectionFactory, MessageConverter converter) {
-        DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
-
-        factory.setConnectionFactory(connectionFactory);
-        factory.setMessageConverter(converter);
-
-        // turn on JMS transactions
-        factory.setSessionTransacted(true);
-
-        // Container factory for Topic listeners (not Queue listeners!)
-        factory.setPubSubDomain(true);
-
-        return factory;
-    }
-
-    @Bean
     public DefaultJmsListenerContainerFactory queueListenerFactory(ConnectionFactory connectionFactory, MessageConverter converter) {
         DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
 
@@ -60,10 +44,6 @@ public class JmsConfig {
 
         // turn on JMS transactions
         factory.setSessionTransacted(true);
-
-        // Container factory for Queue listeners
-        // NOTE: by default PubSubDomain = false, so this code is not necessary
-        factory.setPubSubDomain(false);
 
         return factory;
     }
