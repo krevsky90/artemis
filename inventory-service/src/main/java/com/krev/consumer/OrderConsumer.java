@@ -17,8 +17,9 @@ public class OrderConsumer {
         this.orderProcessor = orderProcessor;
     }
 
-    @JmsListener(destination = "${messaging.queues.orders}")
+    @JmsListener(destination = "${messaging.subscriptions.inventory}", containerFactory = "topicListenerFactory")
     public void consume(OrderCreatedEvent event, Message message) throws InterruptedException, JMSException {
+        log.info("OrderConsumer has received event = {}", event);
         String thread = Thread.currentThread().getName();
 
 //        log.info("============== Main message properties/headers: ==============");

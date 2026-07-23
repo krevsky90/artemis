@@ -1,3 +1,11 @@
 messaging:
   queues:
     orders: orders.queue
+
+  topics:
+    orders: orders.topic
+
+  subscriptions:
+    inventory: inventory-subscription
+    notification: notification-subscription
+    analytics: analytics-subscription

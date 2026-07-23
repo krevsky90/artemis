@@ -14,9 +14,9 @@ import java.util.Map;
 import static org.springframework.jms.support.converter.MessageType.TEXT;
 
 //like JmsConfig in order-service
-//this class is needed to convert JSON artemis message -> jackson -> Order
 @Configuration
 public class JmsConfig {
+    //this converter is needed to convert JSON artemis message -> jackson -> Order
     @Bean
     public MessageConverter jacksonJmsMessageConverter(ObjectMapper objectMapper) {
         MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
@@ -36,7 +36,7 @@ public class JmsConfig {
     }
 
     @Bean
-    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(ConnectionFactory connectionFactory, MessageConverter converter) {
+    public DefaultJmsListenerContainerFactory topicListenerFactory(ConnectionFactory connectionFactory, MessageConverter converter) {
         DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
 
         factory.setConnectionFactory(connectionFactory);
@@ -44,6 +44,26 @@ public class JmsConfig {
 
         // turn on JMS transactions
         factory.setSessionTransacted(true);
+
+        // Container factory for Topic listeners (not Queue listeners!)
+        factory.setPubSubDomain(true);
+
+        return factory;
+    }
+
+    @Bean
+    public DefaultJmsListenerContainerFactory queueListenerFactory(ConnectionFactory connectionFactory, MessageConverter converter) {
+        DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
+
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(converter);
+
+        // turn on JMS transactions
+        factory.setSessionTransacted(true);
+
+        // Container factory for Queue listeners
+        // NOTE: by default PubSubDomain = false, so this code is not necessary
+        factory.setPubSubDomain(false);
 
         return factory;
     }

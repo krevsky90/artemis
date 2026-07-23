@@ -1,6 +1,7 @@
 package com.krev.producer;
 
 import com.krev.order.contract.OrderCreatedEvent;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
@@ -9,14 +10,14 @@ import org.springframework.stereotype.Service;
 public class OrderProducer {
     private final JmsTemplate jmsTemplate;
 
-    @Value("${messaging.queues.orders}")
-    private String queueName;
+    @Value("${messaging.topics.orders}")
+    private String topicName;
 
-    public OrderProducer(JmsTemplate jmsTemplate) {
+    public OrderProducer(@Qualifier("topicJmsTemplate") JmsTemplate jmsTemplate) {
         this.jmsTemplate = jmsTemplate;
     }
 
     public void send(OrderCreatedEvent orderCreatedEvent) {
-        jmsTemplate.convertAndSend(queueName, orderCreatedEvent);
+        jmsTemplate.convertAndSend(topicName, orderCreatedEvent);
     }
 }

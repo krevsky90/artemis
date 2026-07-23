@@ -24,11 +24,6 @@ public class OrderController {
 
     @PostMapping
     public ResponseEntity<Void> createOrder(@Valid @RequestBody OrderRequest orderRequest) {
-//        Order order = new Order(
-//                UUID.randomUUID(),
-//                orderRequest.product(),
-//                orderRequest.price());
-
         UUID orderId = UUID.randomUUID();
 
         OrderCreatedEvent event = new OrderCreatedEvent(

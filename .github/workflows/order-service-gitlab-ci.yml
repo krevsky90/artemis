@@ -3,7 +3,7 @@ name: CI/CD Order Service
 on:
   push:
     branches:
-      - master
+      - stage_8_topics_vs_queue
     paths:
       - 'order-service/**'
       # changes in dependencies might influence on order-service
