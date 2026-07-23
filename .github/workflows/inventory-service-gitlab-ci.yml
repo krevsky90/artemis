@@ -3,7 +3,7 @@ name: CI/CD Inventory Service
 on:
   push:
     branches:
-      - stage_8_topics_vs_queue
+      - stage_8_topic_vs_queue
     paths:
       - 'inventory-service/**'
       # changes in dependencies might influence on order-service
