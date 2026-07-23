@@ -16,6 +16,10 @@ spec:
       labels:
         app: {{ include "artemis.fullname" . }}
 
+      # it gives helm the reason to recreate pod if configmap (and/or files inside) is changed
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+
     spec:
       initContainers:
         - name: init-artemis
