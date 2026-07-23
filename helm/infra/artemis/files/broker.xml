@@ -254,9 +254,9 @@ under the License.
       <addresses>
          <address name="orders.topic">
             <multicast>
-               <queue name="inventory.subscription"/>
-               <queue name="notification.subscription"/>
-               <queue name="analytics.subscription"/>
+               <queue name="inventory-subscription"/>
+               <queue name="notification-subscription"/>
+               <queue name="analytics-subscription"/>
             </multicast>
          </address>
          <address name="DLQ">
