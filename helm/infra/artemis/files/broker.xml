@@ -254,7 +254,7 @@ under the License.
       <addresses>
          <address name="orders.topic">
             <multicast>
-               <queue name="inventory-subscription" durable="true"/> <!-- for durable consumer -->
+               <queue name="inventory-subscription"/>
                <queue name="notification-subscription"/>
                <queue name="analytics-subscription"/>
             </multicast>
