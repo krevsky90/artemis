@@ -3,7 +3,7 @@ name: CI/CD Notification Service
 on:
   push:
     branches:
-      - stage_8_topic_vs_queue
+      - master
     paths:
       - 'notification-service/**'
       # changes in dependencies might influence on notification-service
