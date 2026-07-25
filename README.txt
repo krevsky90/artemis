@@ -262,6 +262,16 @@ https://chatgpt.com/g/g-p-69de2569c3f481918b01d49dddd12f4c-swe/c/6a611648-b4e4-8
 
 NOTE: сообщение не хранится в Topic. Topic — это скорее "точка маршрутизации".
 
+Таким образом, в Artemis/JMS обычно:
+	Topic
+	  |
+	Subscription queues
+	  |
+	Consumers
+
+И @JmsListener почти всегда висит именно на конечной очереди.
+Это важное отличие от Kafka, где consumer group сама является механизмом подписки. В JMS/Artemis эта логика больше вынесена в broker
+
 Определения:
 	Durable подписка - создается очередь, связанная с топиком. Если консюмер отключается, очередь копит соообщения и ждет, пока он подключится. Тогда он прочитает, сообщения удалятся из очереди.
 	Shared подписка - НЕ указывается clientId, из очереди могут читать несколько консюмеров. Используется load balancing. Чтение масштабируется.
@@ -312,6 +322,30 @@ Best practice: более гибко - задавать конфигурацию
 	потому что теор-ски один и тот же сервис может слушать и топики (нужна фабрика с PubSubDomain = true), и обычные очереди (т.е. PubSubDomain = false)
 	Аналогичные бины для создания разных фабрик задаются и в сервисе-продюсере.
 
+Типы очередей:
+1) CORE address/queue - она durable, создается при прописывании ее в broker.xml
+    Пример:
+        <addresses>
+            <address name="orders.topic">
+                <multicast>
+                    <queue name="inventory-subscription"/>
+                </multicast>
+            </address>
+        	...
+        </addresses>
+
+    ИЛИ создается продюсером, когда вызывается код jmsTemplate.convertAndSend(topicName, ...)
+        НО для этого нужны настройки в broker.xml
+            <address-settings>
+        		<address-setting match="#">
+        			<auto-create-addresses>true</auto-create-addresses>
+        			<auto-create-queues>true</auto-create-queues>
+        		</address-setting>
+            </address-settings>
+        Иначе будет ошибка (для топика, например):
+            Destination orders.topic does not exist или AMQ229017: Address does not exist
+
+2) JMS Topic/Subscription - создается автоматически, когда Spring вызывает JMS API, глядя на настройки @JmsListener продюсера/консюмера
 
 ДОПУСТИМ:
 	топик и очереди заданы в broker.xml
@@ -413,14 +447,13 @@ Best practice: более гибко - задавать конфигурацию
         3) Если запустить 3 копии сервиса, каждая создаст свою собственную временную очередь.
             Каждая копия получит полную копию всех сообщений (Fan-out / Broadcast).
             Load balancing (разделение нагрузки) здесь не работает.
-
     Код:
         В broker.xml
             a) указываем только названия топика, а временные очереди создадутся сами
                 <address name="orders.topic">
                     <multicast/> <!-- Тип маршрутизации: Multicast (Topic) -->
                 </address>
-            b) убедиться, что <auto-create-queues>true</auto-create-queues>
+            ??? b) убедиться, что <auto-create-queues>true</auto-create-queues>
 
         В консюмере указываем ТОЛЬКО топик:
             @JmsListener(destination = "${messaging.topics.orders}")
@@ -432,76 +465,62 @@ Best practice: более гибко - задавать конфигурацию
         <auto-create-queues>false</auto-create-queues>
         <auto-create-addresses>false</auto-create-addresses>
         в broker.xml,
-        Артемис все равно создает новые очереди с UUID-шным именем для консюмеров?
-    ОТВЕТ: потому что настройки по auto-create относятся к CORE очередям и адресам (топикам).
+        Артемис все равно создает новые очереди (часто с UUID-шным именем) для консюмеров?
+    ОТВЕТ: потому что настройки по auto-create относятся к CORE очередям и адресам (топикам)
         если внимательно посмотреть на парентовый тэг, то это как раз <core>
         Этот же протокол указан для Producer-а в Web Console Артемиса.
         То есть auto-create = false запрешает создавать топики/очереди, в которые будет писать producer!
         Но НЕ запрещает создавать non-durable очереди, ИЗ к-ых будут читать консюмеры!
+        Таким образом, Артемис создает non-durable JMS subscription queue, а не CORE queue
+        Вот если бы, допустим, не было orders.topic, а продюсер делал jmsTemplate.convertAndSend("orders.topic", ...),
+        то он бы не смог создать CORE topic и кинул ошибку:
+            если речь про топик, то Destination orders.topic does not exist или AMQ229017: Address does not exist
 
+4. Shared volatile (non-durable):
+    Т.к. non-durable, то Артемис будет автоматически создавать JMS Subscription queue с именем типа nonDurable.inventory-subscription для соответствующего консюмера,
+    и НЕ будет пользоваться CORE-ной очередью inventory-subscription (потому что - см web console - она durable=true)
 
+    Код:
+        В broker.xml
+            a) указываем только названия топика, а временные очереди создадутся сами
+                <address name="orders.topic">
+                    <multicast/> <!-- Тип маршрутизации: Multicast (Topic) -->
+                </address>
 
-КАК сделать Topic в Artemis:
-Способ 1 (правильный):
-	1) В broker.xml добавим address:
-		<addresses>
-			<address name="orders.topic">
-				<multicast>
-					<queue name="inventory.subscription"/>
-					<queue name="notification.subscription"/>
-					<queue name="analytics.subscription"/>
-				</multicast>
-			</address>
-		</addresses>
+        В консюмере указываем топик + subscription:
+                    @JmsListener(destination = "${messaging.topics.orders}",
+                                subscription = "${messaging.subscriptions.inventory}",
+                                containerFactory = "topicListenerFactory")
 
-	2) В JmsConfig консюмера создать бин DefaultJmsListenerContainerFactory topicListenerFactory:
-		"Настройка": setPubSubDomain(true) | "Зачем нужна": для Работа с Topics | "Что будет без неё": Будет работать с Queue (point-to-point)
-		"Настройка": setSubscriptionDurable(true) | "Зачем нужна": Включение durable режима | "Что будет без неё": Consumer будет не-durable (сообщения теряются при остановке)
-		"Настройка": setSubscriptionShared(true) | "Зачем нужна": Включение shared режима | "Что будет без неё": Consumer будет не-shared.
-		"Настройка": setClientId(clientId) | "Зачем нужна": Идентификация клиента | "Что будет без неё": Ошибка! Durable subscription требует client ID
-		"Настройка": subscription = "..." | "Зачем нужна": Имя подписки | "Что будет без неё": Подписка будет без имени (не durable)
+        В application.yml или JmsConfig-е указываем
+            pub-sub-domain = true и subscription-shared - true
+
+    NOTE: сообщения из non-durable очереди удаляются, когда после отключения последнего консюмера.
+
+------------------
+НАСТРОЙКИ ПРОДЮСЕРА:
+    кастомизировать бин JmsTemplate topicJmsTemplate, проставив template.setPubSubDomain(true);
+    заюзать бин и топик
+        @Value("${messaging.topics.orders}")
+    	private String topicName;
+
+    	public OrderProducer(@Qualifier("topicJmsTemplate") JmsTemplate jmsTemplate) {
+    	    this.jmsTemplate = jmsTemplate;
+        }
+
+НАСТРОЙКИ КОНСЮМЕРА:
+    см файл "Полная шпаргалка 4 типа подписок на Topic.xlsx"
 
 		NOTE: сочетание clientId + subscription д б УНИКАЛЬНО!
 
-	3) В консюмерах написать
+
 		@JmsListener(destination = "${messaging.topics.orders}",	//это имя топика из broker.xml
-            subscription = "${messaging.subscriptions.inventory}",	// это queue name из broker.xml
-            containerFactory = "topicListenerFactory")				// это имя фабрики из JmsConfig
-
-	4.1) На стороне продюсера:
-		кастомизировать бин JmsTemplate topicJmsTemplate, проставив template.setPubSubDomain(true);
-	4.2) заюзать бин и топик
-		@Value("${messaging.topics.orders}")
-		private String topicName;
-
-		public OrderProducer(@Qualifier("topicJmsTemplate") JmsTemplate jmsTemplate) {
-			this.jmsTemplate = jmsTemplate;
-		}
-
+            subscription = "${messaging.subscriptions.inventory}",	// это queue name, связанного с топиков
+            containerFactory = "topicListenerFactory")				// (опционально) containerFactory - задается имя фабрики из JmsConfig
 	NOTE:
 		Topic (Address с multicast routing) - это источник сообщений. Producer отправляет сюда: jmsTemplate.convertAndSend("orders.topic", order);
 		Subscription (подписка) - каждый подписчик получает свою очередь. например, <queue name="inventory.subscription"/>
-
 	имя subscription уникально ТОЛЬКО в пределах topic-a!
-
-Способ 2 (неправильный, костыльный):
-	Если в Artemis включены настройки по умолчанию:
-	<address-settings>
-		<address-setting match="#">
-			<auto-create-addresses>true</auto-create-addresses>
-			<auto-create-queues>true</auto-create-queues>
-		</address-setting>
-	</address-settings>
-
-	то Spring сам создаст топик и очередь-подписку (durable subscription), если в консюмере написано:
-	@JmsListener(
-		// внимание!! т.к. создается топик и создается подписка-очередь, то указываем и то, и другое (в отличие от консюмера из способа 1)
-		destination = "orders.topic",
-		subscription = "inventory-subscription"
-	)
-	public void consume(Order order) {}
-
-	NOTE: если не включить auto-create-addresses = true, то будет ошибка Destination orders.topic does not exist или AMQ229017: Address does not exist
 
 NOTE: несмотря на то, что listener подключается к inventory-subscription, это не самостоятельный Topic, а multicast-очередь, принадлежащая адресу orders.topic.
 Именно поэтому такая схема работает в Artemis. Это одна из особенностей реализации JMS в Artemis
@@ -527,14 +546,16 @@ spring:
 		}
 -----------------
 
-NOTE: в JMS Topic подписчик обычно должен быть durable, если он должен получать сообщения, даже когда был выключен (чтобы не терять сообщения)
+Рекомендации по выбору
+Сценарий                                                    | Рекомендуемый тип
+Современные микросервисы (нужна балансировка + сохранность) | Shared Durable
+Микросервисы + очереди в XML (ручное управление)            | Shared Non-Durable
+Real-time данные (старые не важны, нужна скорость)          | Classic Non-Durable
+Legacy система (JMS 1.1, строгий аудит)                     | Classic Durable
 
-Таким образом, в Artemis/JMS обычно:
-	Topic
-	  |
-	Subscription queues
-	  |
-	Consumers
-
-И @JmsListener почти всегда висит именно на конечной очереди.
-Это важное отличие от Kafka, где consumer group сама является механизмом подписки. В JMS/Artemis эта логика больше вынесена в broker
+ГЛАВНЫЕ ВЫВОДЫ:
+    Shared Durable — лучший выбор для 95% современных задач на Spring Boot + Artemis.
+    Classic Durable требует client-id и не поддерживает масштабирование (1 client-id = 1 активное подключение).
+    Classic Non-Durable не сохраняет сообщения и не поддерживает балансировку (каждый консюмер получает всё).
+    Shared Non-Durable сохраняет сообщения только если очередь прописана в broker.xml.
+    Для любой подписки с атрибутом subscription в @JmsListener нужно указывать spring.jms.pub-sub-domain: true.
