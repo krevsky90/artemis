@@ -247,3 +247,259 @@ NOTE:
         1) читаем сообщение
         2) пытаемся сохранить event_id в таблицу. Если сохранение такого id уже было, то событие уже обработано, ничего не делаем. Иначе - сохраняем.
         3) сохраняем данные из event-а в inventory таблицу. Или как-то по-другому влияем на inventory таблицу пришедшим событием.
+
+Этап 8. Topic vs Queue
+
+================== todo ====================
+info:
+https://chatgpt.com/g/g-p-69de2569c3f481918b01d49dddd12f4c-swe/c/6a611648-b4e4-83ed-9dc7-ded84f7d0a5b
+
+Если Queue, то сообщение получает один из консюмеров этой очереди.
+Если Topic, то каждый подписчик получает свою копию сообщения.
+
+Что где используется:
+	Queue - когда есть одна задача, которую должен выполнить один исполнитель (Кто первый взял — тот сделал)
+	Topic - когда есть событие: "что-то произошло" и много заинтересованных систем.
+
+NOTE: сообщение не хранится в Topic. Topic — это скорее "точка маршрутизации".
+
+Определения:
+	Durable подписка - создается очередь, связанная с топиком. Если консюмер отключается, очередь копит соообщения и ждет, пока он подключится. Тогда он прочитает, сообщения удалятся из очереди.
+	Shared подписка - НЕ указывается clientId, из очереди могут читать несколько консюмеров. Используется load balancing. Чтение масштабируется.
+
+Как задать создание ConnectionFactory:
+1) через application.yaml
+	Пример:
+		spring:
+		  jms:
+			pub-sub-domain: true # Обязательно для топиков
+			listener:
+			  session:
+				transacted: true	# включаем транзакционность JMS
+			  # may be client-id: inventory-service-1
+			subscription:
+			  durable: true # Включаем durable режим
+
+2) Через @Bean в Java Config-e (класс JmsConfig)
+	Пример:
+		@Bean
+		public DefaultJmsListenerContainerFactory topicListenerFactory(
+				ConnectionFactory connectionFactory,
+				MessageConverter converter
+		) {
+			DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
+
+			factory.setConnectionFactory(connectionFactory);
+			factory.setMessageConverter(converter);
+			// factory.setPubSubDomain(true); // Можно оставить, но spring.jms.pub-sub-domain=true в YAML уже это делает
+			factory.setConcurrency("3-6");
+
+			factory.setSubscriptionDurable(true);
+
+			factory.setSessionTransacted(true);
+
+			return factory;
+		}
+
+NOTE: конфигурация в @Bean перетирает/важнее конфигурации из application.yaml!
+
+Best practice: более гибко - задавать конфигурацию в @Bean и потом указывать название бина в консюмере в containerFactory
+	Пример:
+		@JmsListener(destination = "${messaging.topics.orders}",
+            subscription = "${messaging.subscriptions.inventory}",
+            containerFactory = "topicListenerFactory")
+    public void consume(OrderCreatedEvent event, Message message) { ... }
+
+	потому что теор-ски один и тот же сервис может слушать и топики (нужна фабрика с PubSubDomain = true), и обычные очереди (т.е. PubSubDomain = false)
+	Аналогичные бины для создания разных фабрик задаются и в сервисе-продюсере.
+
+
+ДОПУСТИМ:
+	топик и очереди заданы в broker.xml
+		broker.xml
+		<addresses>
+          <address name="orders.topic">
+            <multicast>
+               <queue name="inventory-subscription"/>
+            </multicast>
+          </address>
+		   ...
+		 </addresses>
+
+Типы подписок:
+1. (старая, JMS 1.1) Classic (Non-shared) durable
+	Очередь имеет свойства, указанные в определении durable.
+	Читать из этой очереди может только один подписчик. У него должен быть абсолютно уникальным в рамках всего брокера Artemis.clientId (указан в application.yaml сервиса).
+	ЕСЛИ, например, в сервисе создать несколько консюмеров, и у них будут одинаковые clientId, то вторая копия "выбьет" первую из брокера, а будет ошибка вида:
+			"message":"Could not refresh JMS Connection for destination 'orders.topic' - ...
+			Cause: clientID=inventory-service was already set into another connection
+
+	ПРОБЛЕМА 1: переименовали clientId - очередь осталась висеть навсегда
+	ПРОБЛЕМА 2: чтобы масштабировать приложение, для каждого инстанса сервиса нужен уникальный clientId. Типа
+		spring:
+		 jms:
+		   listener:
+			 client-id: inventory-service-${random.uuid} # Или ${HOSTNAME} в Kubernetes
+	ПРОБЛЕМА 3: если задать параметры для ConnectionFactory не в application.yaml, а в JmsConfig в виде бина, то ошибка
+		setClientID call not supported on proxy for shared Connection. Set the 'clientId' property on the SingleConnectionFactory instead
+		хз, как обойти это ограничение, поэтому ограничился application.yaml
+
+	Код:
+		application.yaml
+			jms:
+			  listener:
+				session:
+				  transacted: true
+			  pub-sub-domain: true
+			  subscription-durable: true
+			  client-id: inventory-service
+
+		Консюмер:
+			@Component
+			@Slf4j
+			public class TemporaryNotificationConsumer {
+				@JmsListener(destination = "${messaging.topics.orders}",
+						subscription = "${messaging.subscriptions.notification}")
+				public void consume(OrderCreatedEvent event) { ... }
+
+	ИТОГО: Classic Durable consumer используют для легаси систем, где осталось JMS 1.1. Или когда очень важно знать, кто именно подключился и считал сообщение.
+
+2. Shared durable
+	Очередь имеет свойства, указанные в определении durable.
+	clientId задавать НЕ нужно. Консюмеры могут по очереди (load balancing) читать сообщения из очереди топика и затем (после ack) сообщение удаляется из очереди топика.
+	С точки зрения кода - см "Classic (Non-shared) durable", НО НУЖНО
+	а) удалить clientId
+	б) просеттить subscription-shared
+	Тогда Spring Boot автоматически использует JMS 2.0 Shared Durable Consumer.
+	NOTE: если не сделать б), то Spring будет юзать JMS 1.1, и требовать clientId!
+
+	В JmsConfig создать
+		@Bean
+		public DefaultJmsListenerContainerFactory topicListenerFactory(
+				ConnectionFactory connectionFactory,
+				MessageConverter converter
+		) {
+			DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
+
+			factory.setConnectionFactory(connectionFactory);
+			factory.setMessageConverter(converter);
+			factory.setPubSubDomain(true);
+			factory.setSubscriptionDurable(true); // Durable subscription
+			factory.setSubscriptionShared(true);  // Shared subscription
+	//        factory.setClientId("inventory-service");	// do NOT set clientId!
+
+			// turn on JMS transactions
+			factory.setSessionTransacted(true);
+
+			return factory;
+		}
+
+	Удалить из application.yml секцию spring.jms
+
+	Указать в консюмерах сервиса containerFactory = "topicListenerFactory". Т.е.
+		@JmsListener(destination = "${messaging.topics.orders}",
+            subscription = "${messaging.subscriptions.inventory}",
+            containerFactory = "topicListenerFactory")
+
+	NOTE: в JmsProperties НЕТ свойства subscription-shared, поэтому его можно задать только через setSubscriptionShared в @Bean !
+
+	ИТОГО: На данный момент это ОЧЕНЬ ПОПУЛЯРНЫЙ И МАСШТАБИРУЕМЫЙ подход! По сути напоминает работу с кафкой, только та не удаляет сообщение из очереди после прочтения.
+
+
+КАК сделать Topic в Artemis:
+Способ 1 (правильный):
+	1) В broker.xml добавим address:
+		<addresses>
+			<address name="orders.topic">
+				<multicast>
+					<queue name="inventory.subscription"/>
+					<queue name="notification.subscription"/>
+					<queue name="analytics.subscription"/>
+				</multicast>
+			</address>
+		</addresses>
+
+	2) В JmsConfig консюмера создать бин DefaultJmsListenerContainerFactory topicListenerFactory:
+		"Настройка": setPubSubDomain(true) | "Зачем нужна": для Работа с Topics | "Что будет без неё": Будет работать с Queue (point-to-point)
+		"Настройка": setSubscriptionDurable(true) | "Зачем нужна": Включение durable режима | "Что будет без неё": Consumer будет не-durable (сообщения теряются при остановке)
+		"Настройка": setSubscriptionShared(true) | "Зачем нужна": Включение shared режима | "Что будет без неё": Consumer будет не-shared.
+		"Настройка": setClientId(clientId) | "Зачем нужна": Идентификация клиента | "Что будет без неё": Ошибка! Durable subscription требует client ID
+		"Настройка": subscription = "..." | "Зачем нужна": Имя подписки | "Что будет без неё": Подписка будет без имени (не durable)
+
+		NOTE: сочетание clientId + subscription д б УНИКАЛЬНО!
+
+	3) В консюмерах написать
+		@JmsListener(destination = "${messaging.topics.orders}",	//это имя топика из broker.xml
+            subscription = "${messaging.subscriptions.inventory}",	// это queue name из broker.xml
+            containerFactory = "topicListenerFactory")				// это имя фабрики из JmsConfig
+
+	4.1) На стороне продюсера:
+		кастомизировать бин JmsTemplate topicJmsTemplate, проставив template.setPubSubDomain(true);
+	4.2) заюзать бин и топик
+		@Value("${messaging.topics.orders}")
+		private String topicName;
+
+		public OrderProducer(@Qualifier("topicJmsTemplate") JmsTemplate jmsTemplate) {
+			this.jmsTemplate = jmsTemplate;
+		}
+
+	NOTE:
+		Topic (Address с multicast routing) - это источник сообщений. Producer отправляет сюда: jmsTemplate.convertAndSend("orders.topic", order);
+		Subscription (подписка) - каждый подписчик получает свою очередь. например, <queue name="inventory.subscription"/>
+
+	имя subscription уникально ТОЛЬКО в пределах topic-a!
+
+Способ 2 (неправильный, костыльный):
+	Если в Artemis включены настройки по умолчанию:
+	<address-settings>
+		<address-setting match="#">
+			<auto-create-addresses>true</auto-create-addresses>
+			<auto-create-queues>true</auto-create-queues>
+		</address-setting>
+	</address-settings>
+
+	то Spring сам создаст топик и очередь-подписку (durable subscription), если в консюмере написано:
+	@JmsListener(
+		// внимание!! т.к. создается топик и создается подписка-очередь, то указываем и то, и другое (в отличие от консюмера из способа 1)
+		destination = "orders.topic",
+		subscription = "inventory-subscription"
+	)
+	public void consume(Order order) {}
+
+	NOTE: если не включить auto-create-addresses = true, то будет ошибка Destination orders.topic does not exist или AMQ229017: Address does not exist
+
+NOTE: несмотря на то, что listener подключается к inventory-subscription, это не самостоятельный Topic, а multicast-очередь, принадлежащая адресу orders.topic.
+Именно поэтому такая схема работает в Artemis. Это одна из особенностей реализации JMS в Artemis
+
+-----------------
+КАК создать factory для JMS template продюсера и JMS listener консюмера?
+Если все просто, и сервис содержит единственную фабрику (например, для отправки в очередь ИЛИ топик), то можно просто задать в application.yaml
+spring:
+  jms:
+    pub-sub-domain: true # true - for topic, false - for queue
+    listener:
+      session:
+        transacted: true # true - to use JMS transaction
+
+Если же требуется более одной фабрики (например, чтобы уметь принимать/отправлять сообщения И в очередь, И в топик),
+то нужно писать JmsConfig явно и использовать алиас фабрики:
+	для консюмера: @JmsListener(destination = "...", containerFactory = "topicListenerFactory")
+	для продюсера используем @Qualifier:
+		private final JmsTemplate topicJmsTemplate;
+
+		public OrderProducer(@Qualifier("topicJmsTemplate") JmsTemplate topicJmsTemplate) {
+			this.topicJmsTemplate = topicJmsTemplate;
+		}
+-----------------
+
+NOTE: в JMS Topic подписчик обычно должен быть durable, если он должен получать сообщения, даже когда был выключен (чтобы не терять сообщения)
+
+Таким образом, в Artemis/JMS обычно:
+	Topic
+	  |
+	Subscription queues
+	  |
+	Consumers
+
+И @JmsListener почти всегда висит именно на конечной очереди.
+Это важное отличие от Kafka, где consumer group сама является механизмом подписки. В JMS/Artemis эта логика больше вынесена в broker

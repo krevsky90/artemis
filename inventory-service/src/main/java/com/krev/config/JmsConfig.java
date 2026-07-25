@@ -36,11 +36,19 @@ public class JmsConfig {
     }
 
     @Bean
-    public DefaultJmsListenerContainerFactory queueListenerFactory(ConnectionFactory connectionFactory, MessageConverter converter) {
+    public DefaultJmsListenerContainerFactory topicListenerFactory(
+            ConnectionFactory connectionFactory,
+            MessageConverter converter
+    ) {
         DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
 
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(converter);
+        factory.setPubSubDomain(true);
+//        factory.setConcurrency("3-6");
+        factory.setSubscriptionDurable(true); // Durable subscription
+        factory.setSubscriptionShared(true);  // Shared subscription
+//        factory.setClientId("inventory-service");
 
         // turn on JMS transactions
         factory.setSessionTransacted(true);

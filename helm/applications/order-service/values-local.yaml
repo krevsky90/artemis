@@ -1,0 +1,4 @@
+image:
+  repository: order-service
+  pullPolicy: IfNotPresent
+  tag: latest

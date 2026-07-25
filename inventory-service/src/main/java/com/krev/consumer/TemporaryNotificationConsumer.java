@@ -8,7 +8,9 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class TemporaryNotificationConsumer {
-    @JmsListener(destination = "${messaging.subscriptions.notification}", containerFactory = "queueListenerFactory")
+    @JmsListener(destination = "${messaging.topics.orders}",
+            subscription = "${messaging.subscriptions.notification}",
+            containerFactory = "topicListenerFactory")
     public void consume(OrderCreatedEvent event) {
         log.info("TemporaryNotificationConsumer has received event = {}", event);
     }

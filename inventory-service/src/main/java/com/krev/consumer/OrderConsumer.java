@@ -17,33 +17,14 @@ public class OrderConsumer {
         this.orderProcessor = orderProcessor;
     }
 
-    @JmsListener(destination = "${messaging.subscriptions.inventory}", containerFactory = "queueListenerFactory")
+    @JmsListener(destination = "${messaging.topics.orders}",
+            subscription = "${messaging.subscriptions.inventory}",
+            containerFactory = "topicListenerFactory")
     public void consume(OrderCreatedEvent event, Message message) throws InterruptedException, JMSException {
         log.info("OrderConsumer has received event = {}", event);
         String thread = Thread.currentThread().getName();
-
-//        log.info("============== Main message properties/headers: ==============");
-//        log.info("MessageId={}", message.getJMSMessageID());
-//        log.info("CorrelationId={}", message.getJMSCorrelationID());
-//        log.info("Redelivered={}", message.getJMSRedelivered());
-//        log.info("DeliveryCount={}", message.getIntProperty("JMSXDeliveryCount"));
-//        log.info("ReplyTo={}", message.getJMSReplyTo());
-//        log.info("Priority={}", message.getJMSPriority());
-//        log.info("Expiration={}", message.getJMSExpiration());
-//        log.info("Destination={}", message.getJMSDestination());
-//        log.info("Timestamp={}", message.getJMSTimestamp());
-
-//        System.out.println("New order created: " + event);
-
         log.info("Thread={} received order={}", thread, event.orderId());
-
-//        throw new RuntimeException("Inventory service failed");
         orderProcessor.process(event);
-
-//        Thread.sleep(3000);
-
         log.info("Thread={} finished order={}", thread, event.orderId());
     }
-
-
 }
