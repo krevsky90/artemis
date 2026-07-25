@@ -18,7 +18,7 @@ public class OrderConsumer {
     }
 
     @JmsListener(destination = "${messaging.topics.orders}",
-//            subscription = "${messaging.subscriptions.inventory}",
+            subscription = "${messaging.subscriptions.inventory}",
             containerFactory = "topicListenerFactory")
     public void consume(OrderCreatedEvent event, Message message) throws InterruptedException, JMSException {
         log.info("OrderConsumer has received event = {}", event);
