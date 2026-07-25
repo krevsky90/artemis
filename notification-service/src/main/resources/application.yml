@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: notification-service
+
+  config:
+    import: optional:classpath:order-contract.yml
+
+  artemis:
+    # mode = embedded - when artemis is launched inside the application - just for learning purposes
+    mode: native
+    broker-url: ${ARTEMIS_URL}
+    # user and password - that are created by docker-compose file
+    user: ${ARTEMIS_USER}
+    password: ${ARTEMIS_PASSWORD}
+
+server:
+  port: 8083

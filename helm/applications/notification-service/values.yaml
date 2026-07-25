@@ -1,0 +1,26 @@
+namespace: apps
+
+replicaCount: 1
+
+image:
+  repository: krevskiigrigorii/notification-service
+  pullPolicy: IfNotPresent
+  tag: "1.0"
+
+containerPort:
+  port: 8083
+
+artemis:
+  brokerUrl: tcp://artemis.infra:61616
+  secretName: artemis-secret
+
+livenessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+readinessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5

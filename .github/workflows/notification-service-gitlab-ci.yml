@@ -1,17 +1,17 @@
-name: CI/CD Inventory Service
+name: CI/CD Notification Service
 
 on:
   push:
     branches:
       - stage_8_topic_vs_queue
     paths:
-      - 'inventory-service/**'
-      # changes in dependencies might influence on inventory-service
+      - 'notification-service/**'
+      # changes in dependencies might influence on notification-service
       - 'order-contract/**'
-      # parent pom might influence on inventory-service
+      # parent pom might influence on notification-service
       - 'pom.xml'
-      - 'helm/applications/inventory-service/**'
-      - '.github/workflows/inventory-service-gitlab-ci.yml'
+      - 'helm/applications/notification-service/**'
+      - '.github/workflows/notification-service-gitlab-ci.yml'
 
 jobs:
   build:
@@ -32,7 +32,7 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        run: mvn -B clean verify -DskipTests -pl inventory-service -am
+        run: mvn -B clean verify -DskipTests -pl notification-service -am
 
       - name: Docker login
         uses: docker/login-action@v3
@@ -42,11 +42,11 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t krevskiigrigorii/inventory-service:${{ github.sha }} inventory-service
+          docker build -t krevskiigrigorii/notification-service:${{ github.sha }} notification-service
 
       - name: Push Docker image
         run: |
-          docker push krevskiigrigorii/inventory-service:${{ github.sha }}
+          docker push krevskiigrigorii/notification-service:${{ github.sha }}
   
   deploy:
     name: Deploy to Kubernetes
@@ -73,9 +73,8 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          helm upgrade --install inventory-service ./helm/applications/inventory-service --set image.tag=${{ github.sha }} --namespace apps
-#          helm upgrade --install order-service ./order-service/helm/order-service \
-#          --set image.repository=krevskiigrigorii/order-service \
+          helm upgrade --install notification-service ./helm/applications/notification-service --set image.tag=${{ github.sha }} --namespace apps
+#          --set image.repository=krevskiigrigorii/notification-service \
 #          --set image.tag=latest \
 #          --namespace default \
 #          --create-namespace
