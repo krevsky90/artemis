@@ -46,7 +46,7 @@ public class JmsConfig {
         factory.setMessageConverter(converter);
         factory.setPubSubDomain(true);
 //        factory.setConcurrency("3-6");
-//        factory.setSubscriptionDurable(true); // Durable subscription
+        factory.setSubscriptionDurable(true); // Durable subscription
         factory.setSubscriptionShared(true);  // Shared subscription
 //        factory.setClientId("inventory-service");
 
