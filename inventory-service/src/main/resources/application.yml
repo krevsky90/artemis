@@ -13,10 +13,10 @@ spring:
     user: ${ARTEMIS_USER}
     password: ${ARTEMIS_PASSWORD}
 
-  jms:
-    listener:
+#  jms:
+#    listener:
       # acknowledge-mode: auto
-      concurrency: 5
+#      concurrency: 5
 
 #    template:
 #      delivery-mode: non_persistent

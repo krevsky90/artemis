@@ -25,6 +25,7 @@ public class OrderConsumer {
         String thread = Thread.currentThread().getName();
         log.info("Thread={} received order={}", thread, event.orderId());
         orderProcessor.process(event);
+        Thread.sleep(5000);
         log.info("Thread={} finished order={}", thread, event.orderId());
     }
 }
