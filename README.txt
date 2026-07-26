@@ -559,3 +559,74 @@ Legacy система (JMS 1.1, строгий аудит)                     |
     Classic Non-Durable не сохраняет сообщения и не поддерживает балансировку (каждый консюмер получает всё).
     Shared Non-Durable сохраняет сообщения только если очередь прописана в broker.xml.
     Для любой подписки с атрибутом subscription в @JmsListener нужно указывать spring.jms.pub-sub-domain: true.
+
+Этап 9. Selectors
+info: https://chatgpt.com/g/g-p-69de2569c3f481918b01d49dddd12f4c/c/6a611648-b4e4-83ed-9dc7-ded84f7d0a5b
+
+ИДЕЯ: selector помогает фильтровать сообщения.
+    Producer добавляет JmsProperty, в котором хранятся selector-ы, к отправляемому сообщению (см OrderProducer).
+        т.е. само сообщение (его тело) НЕ меняется!
+    В зависимости от значения проперти сообщение будет попадать в ту или иную очередь топика.
+    Т.е. продюсер отправляет сообщения в один топик, а куда оно дальше пойдет - конфигурится не в продюсере, а на уровне брокера.
+    Селекторы могут быть строковыми, числовыми, логическими операциями.
+    Селекторы могут иметь любые названия и любые значения.
+
+    ПРИМЕНЕНИЕ:
+        VIP-клиенты → отдельный консюмер.
+        Сообщения для региона EU → отдельный сервис.
+        Retry-сообщения → отдельный обработчик.
+        Тип события (eventType='ORDER_CREATED', eventType='ORDER_CANCELLED') → разные обработчики.
+
+        Без селекторов пришлось бы делать множество топиков и очередей только ради простой фильтрации.
+
+    Пример:
+                         orders.queue
+                              │
+              ┌───────────────┴───────────────┐
+              │                               │
+        Selector: priority='HIGH'      Selector: priority='LOW'
+              │                               │
+        HighPriorityConsumer          LowPriorityConsumer
+
+    NOTE:
+        Для JMS shared subscription несколько listeners с одной и той же подпиской, но разными селекторами — допустимая модель
+        (при соблюдении правил совместимости селекторов).
+        Однако на практике её используют нечасто, потому что она усложняет понимание поведения подписки.
+
+1) ЕСЛИ Core-очередь, то в broker.xml добавляем filter и ребутаем Артемис,
+    Пример:
+    <address name="orders.topic">
+        <multicast>
+            <queue name="notification-subscription">
+                <filter string="notificationType = 'HIGH_PRICE'"/>
+            </queue>
+        </multicast>
+    </address>
+
+    а в JmsListener-е НЕ ПИШЕМ selector!
+            @JmsListener(destination = "${messaging.topics.orders}",
+                    subscription = "${messaging.subscriptions.notification}",
+                    containerFactory = "topicListenerFactory")
+            public void consume(OrderCreatedEvent event) {
+                log.info("HighPriceNotificationConsumer has received event = {}", event);
+            }
+
+    NOTE: если же написать селектор в JmsListener-e, то он просто НЕ БУДЕТ РАБОАТЬ!
+        Он никак не применится к уже созданной core-ной очереди.
+
+2) ЕСЛИ Jms-очередь (т.е. НЕ прописана в broker.xml), то фильтр пишем в JmsListener-e:
+        @JmsListener(destination = "${messaging.topics.orders}",
+                subscription = "high-price-subscription",   // JMS (but not core) queue
+                selector = "notificationType = 'HIGH_PRICE'",
+                containerFactory = "topicListenerFactory")
+        public void consume(OrderCreatedEvent event) {
+            log.info("HighPriceNotificationConsumer has received event = {}", event);
+        }
+
+        Если high-price-subscription очередь будет создана (например, она non-durable),
+        то колонка Filter в Web console будет отображать созданное условие.
+
+Если очередь shared, и несколько консюмеров имеют одинаковые селекторы, то они будут по очереди (load balancing) брать сообщения из очереди.
+
+
+
