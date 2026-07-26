@@ -254,8 +254,11 @@ under the License.
       <addresses>
          <address name="orders.topic">
             <multicast>
-               <queue name="inventory-subscription"/>
-               <queue name="notification-subscription"/>
+               <queue name="inventory-subscription">
+               </queue>
+               <queue name="notification-subscription">
+                  <filter string="notificationType = 'HIGH_PRICE'"/>
+               </queue>
                <queue name="analytics-subscription"/>
             </multicast>
          </address>

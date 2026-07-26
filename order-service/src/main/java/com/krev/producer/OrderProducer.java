@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+
 @Service
 public class OrderProducer {
     private final JmsTemplate jmsTemplate;
@@ -18,6 +20,10 @@ public class OrderProducer {
     }
 
     public void send(OrderCreatedEvent orderCreatedEvent) {
-        jmsTemplate.convertAndSend(topicName, orderCreatedEvent);
+        boolean cheap = orderCreatedEvent.price().compareTo(BigDecimal.valueOf(1000)) < 0;
+        jmsTemplate.convertAndSend(topicName, orderCreatedEvent, message -> {
+            message.setStringProperty("notificationType", cheap ? "LOW_PRICE" : "HIGH_PRICE");
+            return message;
+        });
     }
 }
