@@ -8,12 +8,12 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class LowPriceNotificationConsumer {
-//    @JmsListener(destination = "${messaging.topics.orders}",
-////            subscription = "low-price-subscription",
+    @JmsListener(destination = "${messaging.topics.orders}",
+            subscription = "low-price-subscription",
 //            subscription = "${messaging.subscriptions.notification}",
-//            selector = "notificationType = 'HIGH_PRICE'",
-//            containerFactory = "topicListenerFactory")
-//    public void consume(OrderCreatedEvent event) {
-//        log.info("LowPriceNotificationConsumer has received event = {}", event);
-//    }
+            selector = "notificationType = 'LOW_PRICE'",
+            containerFactory = "topicListenerFactory")
+    public void consume(OrderCreatedEvent event) {
+        log.info("LowPriceNotificationConsumer has received event = {}", event);
+    }
 }
