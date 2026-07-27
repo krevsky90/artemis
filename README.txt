@@ -116,6 +116,9 @@ NOTE:
     где #0 - номер JMS listener-a (т.к. над классом консюмера указан листенер)
         -3 - номер консюмера, отвечающего этому листенеру
 
+NOTE: setConcurrency("3-6") - значит, что default = min = 3, max = 6
+        а setConcurrency("6") - значит, что default = min = 1! а max = 6
+
 Этап 5. Ack from consumer
     Обычный flow:
         Получить сообщение -> Преобразовать JSON -> Вызвать @JmsListener
@@ -301,7 +304,7 @@ NOTE: сообщение не хранится в Topic. Topic — это ско
 			factory.setConnectionFactory(connectionFactory);
 			factory.setMessageConverter(converter);
 			// factory.setPubSubDomain(true); // Можно оставить, но spring.jms.pub-sub-domain=true в YAML уже это делает
-			factory.setConcurrency("3-6");
+			factory.setConcurrency("3-6");  // i.e. default = min = 3, max = 6
 
 			factory.setSubscriptionDurable(true);
 
@@ -346,6 +349,7 @@ Best practice: более гибко - задавать конфигурацию
             Destination orders.topic does not exist или AMQ229017: Address does not exist
 
 2) JMS Topic/Subscription - создается автоматически, когда Spring вызывает JMS API, глядя на настройки @JmsListener продюсера/консюмера
+    NOTE: если JMS очередь/subscription была создана кодом как durable, то при удалении JmsListener-a очередь ОСТАНЕТСЯ в Артемисе, не удалится!!!
 
 ДОПУСТИМ:
 	топик и очереди заданы в broker.xml
@@ -627,6 +631,165 @@ info: https://chatgpt.com/g/g-p-69de2569c3f481918b01d49dddd12f4c/c/6a611648-b4e4
         то колонка Filter в Web console будет отображать созданное условие.
 
 Если очередь shared, и несколько консюмеров имеют одинаковые селекторы, то они будут по очереди (load balancing) брать сообщения из очереди.
+
+Этап 10. Message Groups
+ИДЕЯ:
+    Message Group отвечает: Какому конкретному consumer'у закрепить последовательность сообщений?
+    Если, например, событие по Order 15 попадает консюмеру А,
+    то все последующие сообщения этой группы (Order 15) автоматически отправляются тому же consumer'у А.
+        Order 15
+            CREATED
+            RESERVED
+            PACKED
+            SHIPPED
+    В таком случае последовательность событий по заказу сохранится и порядок обработки - тоже. Т.е. будет правильным.
+
+    В продюсере добавляем свойство JMSXGroupID.
+    Например,
+        jmsTemplate.convertAndSend(topicName, event, message -> {
+            message.setStringProperty("JMSXGroupID", event.orderId().toString());
+            return message;
+        });
+
+    Консюмер не меняется. Никаких специальных настроек не требуется. Всю работу делает Artemis.
+    Он железно маппит "одна Message group -> один consumer (пока консюмер жив)"
+
+    Один consumer может обслуживать несколько Message group.
+    Пока группа активна, два consumer'а одновременно никогда не будут обрабатывать сообщения одной и той же группы.
+    Именно это и обеспечивает сохранение порядка сообщений внутри группы при параллельной обработке разных групп.
+
+Message group используют обычно для очередей, а НЕ топиков.
+Потому что идея - разгрести общую работу (очередь ордеров, например) в параллель, обрабатывая события по каждому ордеру (или др "partition key") в исходной последовательности.
+
+ВОПРОС: Можно ли использовать Message group для очередей топиков?
+ОТВЕТ: можно, НО т.к. JMSXGroupID задается в продюсере при отправке сообщений в топик, то получится,
+    что все очереди-подписки будут иметь один и тот же ключ (а-ля "partition key"),
+    это не всегда удобно по смыслу каждой очереди.
+РЕШЕНИЯ:
+    1) Выбирать наиболее важный ключ
+    2) Не использовать Message Groups в Topic
+        Например, orders.topic только рассылает события, а каждый сервис внутри уже делает своё распределение.
+            Или просто несколько внутренних очередей.
+    3) Разделить события: вместо одного orders.topic делают
+            inventory.topic
+            notification.topic
+            analytics.topic
+        И Producer публикует три разных сообщения. Тогда можно каждому сообщению поставить свой JMSXGroupID
+        НО ПЛОХО: producer начинает знать о потребителях
+    4) НЕ использовать Topic для команд
+       Это САМЫЙ ПОПУЛЯРНЫЙ подход в реальных системах.
+       Есть событие OrderCreated
+       Его читает оркестратор (или routing service) и отправляет команды:
+           ReserveInventory
+           SendNotification
+           UpdateAnalytics
+       Каждая команда идёт в свою очередь:
+           inventory.queue
+           notification.queue
+           analytics.queue
+       И уже там можно использовать:
+       Для Inventory: JMSXGroupID = warehouseId
+       Для Notification: JMSXGroupID = customerId
+       Для Analytics: вообще без Message Groups
+       Каждая очередь живёт по своим правилам.
+
+ИТОГО: именно поэтому Message group обычно не сочетают с топиками.
+
+Применительно к очереди (см мой код, ${messaging.queues.orders}), если сделать, например, 5 консюмеров (concurrency = 5-5), но НЕ использовать message group по product,
+    то любой из консюмеров обрабатывает сообщения с product = KREV_PRODUCT_1:
+        {"@timestamp":"2026-07-27T14:03:48.42087346Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Notificat
+        ionConsumer has received eventId = bcc9d229-dfbf-4ce0-a97a-60669f977460 with product = KREV_PRODUCT_1"}
+        {"@timestamp":"2026-07-27T14:03:49.14547539Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-4","message":"Notificat
+        ionConsumer has received eventId = 90adc1ca-f0a5-407c-86fc-2465649f4245 with product = KREV_PRODUCT_1"}
+        {"@timestamp":"2026-07-27T14:03:49.805318874Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-5","message":"Notifica
+        tionConsumer has received eventId = 5518850e-ce5d-491b-8036-498c3e08255f with product = KREV_PRODUCT_1"}
+        {"@timestamp":"2026-07-27T14:03:50.459021115Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Notifica
+        tionConsumer has received eventId = 3d824a64-05ac-4017-bf99-d5204a19c971 with product = KREV_PRODUCT_1"}
+        {"@timestamp":"2026-07-27T14:03:51.085358147Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-4","message":"Notifica
+        tionConsumer has received eventId = af2ac209-636f-4f13-98ca-300f2cb4ea80 with product = KREV_PRODUCT_1"}
+        {"@timestamp":"2026-07-27T14:03:51.727237209Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-5","message":"Notifica
+        tionConsumer has received eventId = 5acc6510-07e6-4183-a28a-6d77ddcf1735 with product = KREV_PRODUCT_1"}
+        {"@timestamp":"2026-07-27T14:03:52.408165041Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Notifica
+        tionConsumer has received eventId = 97eb19c1-9f70-45f0-b278-0a60ba53f5a7 with product = KREV_PRODUCT_1"}
+
+А если включить concurrency = 3-3 и message.setStringProperty("JMSXGroupID", orderCreatedEvent.product());, то
+    {"@timestamp":"2026-07-27T16:01:33.828545965Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-3","message":"Notifica
+    tionConsumer has received eventId = f0797737-a172-4a2b-ae2d-b34b92e33657 with product = KREV_PRODUCT_1"}
+    {"@timestamp":"2026-07-27T16:01:36.836947108Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-3","message":"Notifica
+    tionConsumer has received eventId = 5b99bf9c-defa-4df2-8090-a4a943765084 with product = KREV_PRODUCT_1"}
+    {"@timestamp":"2026-07-27T16:01:36.874541803Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-2","message":"Notifica
+    tionConsumer has received eventId = e6c44161-7b55-470c-861c-af14a7582715 with product = KREV_PRODUCT_2"}
+    {"@timestamp":"2026-07-27T16:01:39.018660419Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Notifica
+    tionConsumer has received eventId = 5339e28e-308b-422b-8c98-095df52a7967 with product = KREV_PRODUCT_4"}
+    {"@timestamp":"2026-07-27T16:01:39.842876921Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-3","message":"Notifica
+    tionConsumer has received eventId = d91f2fad-62a4-4782-9179-e23dc2317da4 with product = KREV_PRODUCT_1"}
+    {"@timestamp":"2026-07-27T16:01:39.87842119Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-2","message":"Notificat
+    ionConsumer has received eventId = 21c5912e-c778-4541-a8cf-2cfb13037371 with product = KREV_PRODUCT_2"}
+    {"@timestamp":"2026-07-27T16:01:42.025580304Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Notifica
+    tionConsumer has received eventId = 2da663de-5f32-49b3-99f1-fcf1d3261947 with product = KREV_PRODUCT_4"}
+    {"@timestamp":"2026-07-27T16:01:42.849869603Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-3","message":"Notifica
+    tionConsumer has received eventId = 566629ac-56f6-4d37-9d75-62740b36eba2 with product = KREV_PRODUCT_3"}
+    {"@timestamp":"2026-07-27T16:01:45.02998513Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Notificat
+    ionConsumer has received eventId = f75648a4-af4d-4c4b-9645-27bbe95b7107 with product = KREV_PRODUCT_4"}
+    {"@timestamp":"2026-07-27T16:01:45.137173011Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-2","message":"Notifica
+    tionConsumer has received eventId = f966e4f3-672a-4f06-aff5-0b5617eb0044 with product = KREV_PRODUCT_5"}
+    {"@timestamp":"2026-07-27T16:01:45.854245101Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-3","message":"Notifica
+    tionConsumer has received eventId = ceb207e0-fbec-4523-a78b-8489c5e20711 with product = KREV_PRODUCT_3"}
+
+Т.е. видно, что
+    JmsListenerEndpointContainer#0-1:
+    	KREV_PRODUCT_4
+    JmsListenerEndpointContainer#0-2:
+    	KREV_PRODUCT_2
+    	KREV_PRODUCT_5
+    JmsListenerEndpointContainer#0-3:
+    	KREV_PRODUCT_1
+    	KREV_PRODUCT_3
+
+--------- Artemis vs Kafka ---------
+Kafka: максимальный параллелизм в одной consumer group ограничен количеством партиций (т.к. число работающих консюмеров = числу партиций)
+Artemis: максимальный параллелизм определяется количеством consumer'ов и независимых Message Groups; отдельного ограничения, аналогичного числу партиций, нет.
+	т.е. Максимальный параллелизм = min(число активных Message Groups, число доступных Consumer'ов)
+	* активных, потому что если будет группа с 1млн сообщений, и остальные группы с 1тыс, то эти остальные группы будут проставивать (проблема равномерного распределения нагрузки есть и тут).
+
+Artemis — доставить команду конкретному исполнителю.
+Kafka — опубликовать факт для всех заинтересованных.
+
+Зачастую Artemis выбирают там, где нужно доставить команду, и НЕ использовать возможность воспроизведение сообщения еще раз (типа подвинуть оффсет).
+Также у Artemis есть встроенная DLQ, в отличие от Кафка.
+JMS очень хорошо интегрирован с транзакциями.
+
+В целом у Artemis есть:
+	Session Transacted;
+	XA (при необходимости);
+	redelivery;
+	DLQ;
+	Message Groups;
+	request/reply.
+
+ЧТО выбрать? => Что является первичной сущностью моей системы?
+Если это:
+	команды;
+	workflow;
+	очереди задач;
+	обработка заявок;
+	интеграция сервисов;
+то JMS-брокер вроде Artemis зачастую оказывается более естественным выбором.
+
+Если же это:
+	поток событий;
+	аналитика;
+	аудит;
+	CDC;
+	Data Lake;
+	возможность многократно перечитывать историю;
+то Kafka практически всегда подходит лучше.
+
+Если обобщить
+	Kafka — это распределённый журнал событий (distributed log).
+		Её задача — долго хранить огромный поток событий и позволять разным потребителям читать его независимо, в том числе повторно.
+	Artemis — это брокер сообщений (message broker).
+		Его задача — надёжно и эффективно доставить сообщение нужному обработчику, после чего сообщение обычно становится ненужным.
 
 
 

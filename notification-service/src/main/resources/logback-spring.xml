@@ -17,10 +17,10 @@
                         "service":"${appName}",
                         "level":"%level",
                         "thread":"%thread",
-                        "logger":"%logger",
-                        "message":"%message",
-                        "traceId":"%X{trace_id:-}",
-                        "spanId":"%X{span_id:-}"
+<!--                        "logger":"%logger",-->
+                        "message":"%message"
+<!--                        "traceId":"%X{trace_id:-}",-->
+<!--                        "spanId":"%X{span_id:-}"-->
                         }
                     </pattern>
                     <!-- example of row -->

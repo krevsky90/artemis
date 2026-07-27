@@ -51,15 +51,15 @@ public class JmsConfig {
     //for any case (if we want to publish to queue, but not topic)
     // BUT NOW this is identical to default existing auto-configurable bean
 
-//    @Bean
-//    public JmsTemplate queueJmsTemplate(ConnectionFactory connectionFactory, MessageConverter converter) {
-//        JmsTemplate template = new JmsTemplate(connectionFactory);
-//
-//        template.setMessageConverter(converter);
-//
-//        // JMS template for publishing messages to Topics (not Queue!)
-//        template.setPubSubDomain(false);
-//
-//        return template;
-//    }
+    @Bean
+    public JmsTemplate queueJmsTemplate(ConnectionFactory connectionFactory, MessageConverter converter) {
+        JmsTemplate template = new JmsTemplate(connectionFactory);
+
+        template.setMessageConverter(converter);
+
+        // JMS template for publishing messages to Topics (not Queue!)
+        template.setPubSubDomain(false);
+
+        return template;
+    }
 }

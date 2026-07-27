@@ -8,10 +8,11 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class NotificationConsumer {
-    @JmsListener(destination = "${messaging.topics.orders}",
-            subscription = "${messaging.subscriptions.notification}",
-            containerFactory = "topicListenerFactory")
-    public void consume(OrderCreatedEvent event) {
-        log.info("NotificationConsumer has received event = {}", event);
+    @JmsListener(destination = "${messaging.queues.orders}",
+//            subscription = "${messaging.subscriptions.notification}",
+            containerFactory = "queueListenerFactory")
+    public void consume(OrderCreatedEvent event) throws InterruptedException {
+        log.info("NotificationConsumer has received eventId = {} with product = {}", event.eventId(), event.product());
+        Thread.sleep(3000);
     }
 }

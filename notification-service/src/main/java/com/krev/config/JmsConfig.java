@@ -55,4 +55,21 @@ public class JmsConfig {
 
         return factory;
     }
+
+    @Bean
+    public DefaultJmsListenerContainerFactory queueListenerFactory(
+            ConnectionFactory connectionFactory,
+            MessageConverter converter
+    ) {
+        DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
+
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(converter);
+        factory.setConcurrency("3-3");
+
+        // turn on JMS transactions
+        factory.setSessionTransacted(true);
+
+        return factory;
+    }
 }
