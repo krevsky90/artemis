@@ -65,7 +65,7 @@ public class JmsConfig {
 
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(converter);
-        factory.setConcurrency("3-3");
+//        factory.setConcurrency("3-3");
 
         // turn on JMS transactions
         factory.setSessionTransacted(true);

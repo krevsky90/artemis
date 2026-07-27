@@ -20,7 +20,15 @@ public class OrderProducer {
     public void send(OrderCreatedEvent orderCreatedEvent) {
 //        boolean cheap = orderCreatedEvent.price().compareTo(BigDecimal.valueOf(1000)) < 0;
         jmsTemplate.convertAndSend(queueName, orderCreatedEvent, message -> {
-            message.setStringProperty("JMSXGroupID", orderCreatedEvent.product());
+            long delay = switch (orderCreatedEvent.product()) {
+                case "KREV_PRODUCT_1" -> 5_000L;
+                case "KREV_PRODUCT_2" -> 10_000L;
+                case "KREV_PRODUCT_3" -> 20_000L;
+                default -> 0L;
+            };
+//            message.setStringProperty("JMSXGroupID", orderCreatedEvent.product());
+
+            message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + delay);
             return message;
         });
     }
