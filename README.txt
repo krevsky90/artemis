@@ -827,4 +827,48 @@ Spring ничего не планирует. Всё делает сам Artemis.
 и пульнуть REST-ом event3, event2, event1,
 то они придут в консюмер в порядке event1, event2, event3
 
+Пример 2: Scheduler + Message Group
+    отправляем сообщения для KREV_PRODUCT_2 с задержкой 30с
+    отправляем сообщения для KREV_PRODUCT_1 без задержки, ЗА ИСКЛЮЧЕНИЕМ сообщения с price = 100.00
+    Код:
+
+    public void send(OrderCreatedEvent orderCreatedEvent) {
+            jmsTemplate.convertAndSend(queueName, orderCreatedEvent, message -> {
+                long delay = 0L;
+                if ("KREV_PRODUCT_1".equalsIgnoreCase(orderCreatedEvent.product())
+                        && BigDecimal.valueOf(100.00).compareTo(orderCreatedEvent.price()) == 0) {
+                        delay = 15_000L;
+                } else if ("KREV_PRODUCT_2".equalsIgnoreCase(orderCreatedEvent.product())) {
+                    delay = 30_000L;
+                }
+
+                message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + delay);
+                message.setStringProperty("JMSXGroupID", orderCreatedEvent.product());
+
+                return message;
+            });
+        }
+
+    concurrency of consumer = 2
+
+    Шлем:
+        event1: KREV_PRODUCT_2
+        event2: KREV_PRODUCT_2
+        event3: KREV_PRODUCT_1 price=100.00
+        event4: KREV_PRODUCT_1 price=105.00
+        event5: KREV_PRODUCT_2
+
+    Тогда:
+        Consumer 1:
+            получает сообщения только с KREV_PRODUCT_2 и через 30 сек после из отправки (до тез пор они хранятся в очереди, но недоступны)
+        Consumer 2:
+            получает сообщения только с KREV_PRODUCT_1, причем:
+                event4
+                event3
+    NOTE: ПОТОМУ ЧТО Artemis применяет Message Groups только к сообщениям, которые уже доступны для доставки!!!
+        т.е. Message Groups гарантируют порядок только среди сообщений, одновременно находящихся в очереди доставки.
+        А отложенное сообщение (_AMQ_SCHED_DELIVERY) еще не находится в очереди доставки.
+        Это не баг, потому что scheduler работает ДО помещения сообщения в очередь.
+
+
 

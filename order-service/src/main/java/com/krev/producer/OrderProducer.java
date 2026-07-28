@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+
 @Service
 public class OrderProducer {
     private final JmsTemplate jmsTemplate;
@@ -18,17 +20,18 @@ public class OrderProducer {
     }
 
     public void send(OrderCreatedEvent orderCreatedEvent) {
-//        boolean cheap = orderCreatedEvent.price().compareTo(BigDecimal.valueOf(1000)) < 0;
         jmsTemplate.convertAndSend(queueName, orderCreatedEvent, message -> {
-            long delay = switch (orderCreatedEvent.product()) {
-                case "KREV_PRODUCT_1" -> 5_000L;
-                case "KREV_PRODUCT_2" -> 10_000L;
-                case "KREV_PRODUCT_3" -> 20_000L;
-                default -> 0L;
-            };
-//            message.setStringProperty("JMSXGroupID", orderCreatedEvent.product());
+            long delay = 0L;
+            if ("KREV_PRODUCT_1".equalsIgnoreCase(orderCreatedEvent.product())
+                    && BigDecimal.valueOf(100.00).compareTo(orderCreatedEvent.price()) == 0) {
+                    delay = 15_000L;
+            } else if ("KREV_PRODUCT_2".equalsIgnoreCase(orderCreatedEvent.product())) {
+                delay = 30_000L;
+            }
 
             message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + delay);
+            message.setStringProperty("JMSXGroupID", orderCreatedEvent.product());
+
             return message;
         });
     }

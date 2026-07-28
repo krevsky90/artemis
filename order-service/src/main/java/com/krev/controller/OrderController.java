@@ -23,7 +23,7 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> createOrder(@Valid @RequestBody OrderRequest orderRequest) {
+    public ResponseEntity<OrderCreatedEvent> createOrder(@Valid @RequestBody OrderRequest orderRequest) {
         UUID orderId = UUID.randomUUID();
 
         OrderCreatedEvent event = new OrderCreatedEvent(
@@ -36,6 +36,6 @@ public class OrderController {
 
         orderProducer.send(event);
 
-        return ResponseEntity.accepted().build();
+        return ResponseEntity.accepted().body(event);
     }
 }

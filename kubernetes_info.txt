@@ -315,4 +315,26 @@ kubectl get deployment inventory-service -n apps -o jsonpath="{.spec.template.sp
 ОБРАТНЫЙ возврат к использованию remote image (на примере latest):
 helm upgrade --install inventory-service ./helm/applications/inventory-service -n apps --reset-values --set image.tag=latest
 
-===================
+=================== Как дебажить микросервис ===================
+1) в Deployment дописать:
+    env:
+        - name: JAVA_TOOL_OPTIONS
+          value: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    ports:
+        - containerPort: 5005 # порт для дебага
+
+2) после пересоздания поды сделать kubectl port-forward pod/<имя-вашего-пода> 5005:5005
+    или kubectl port-forward <имя-вашего-пода> 5005:5005 -n apps
+
+3) Настройте IntelliJ IDEA
+    Откройте ваш проект в IDEA.
+    В верхнем меню нажмите Run -> Edit Configurations...
+    Нажмите на + (Add New Configuration) в левом верхнем углу и выберите Remote JVM Debug.
+    Задайте настройки:
+        Name: K8s-Debug (или любое удобное)
+        Host: localhostPort: 5005
+        Use module classpath: выберите модуль вашего микросервиса.
+        Нажмите Apply и OK.
+    В консоли IDEA должно появиться сообщение: Connected to the target VM, address: 'localhost:5005', transport: 'socket'.
+    поставьте breakpoint
+
