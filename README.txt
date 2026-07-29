@@ -1058,3 +1058,67 @@ NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...);
     Если клиент оплатил через 10 минут, то OrderService просто меняет статус с CREATED -> PAID,
         и CancelOrderConsumer ничего не делает
     NOTE: дешевле принять неактуальное событие и ничего не сделать, чем искать такое событие, чтобы его удалить
+
+Этап 12 TTL.
+Кейсы:
+    1) TTL во время обработки сообщения
+        TTL = 5 секунд;
+        consumer начинает обработку через 2 секунды;
+        обработка занимает 20 секунд (Thread.sleep(20000)).
+
+        ВОПРОС: удалит ли Artemis сообщение прямо во время обработки?
+        ОТВЕТ: нет. Как только сообщение выдано consumer'у, TTL больше не проверяется. Оно либо ACK'нется, либо откатится.
+
+    2) TTL + rollback
+       TTL = 5 секунд;
+       consumer получил сообщение;
+       7 секунд его обрабатывал;
+       бросил исключение;
+       rollback.
+
+       Код:
+            Producer's JmsConfig:
+                template.setTimeToLive(5_000);
+            NotificationConsumer:
+                log.info("START {}", Instant.now());
+
+                Thread.sleep(7000L);
+                log.info("THROW {}", Instant.now());
+                log.info("JMSExpiration={}", Instant.ofEpochMilli(message.getJMSExpiration()));
+                log.info("deliveryCount={}", message.getIntProperty("JMSXDeliveryCount"));
+                throw new JMSException("NotificationConsumer failed KREV");
+
+       ВОПРОС: сообщение вернется в очередь или сразу уйдет в ExpiryQueue?
+       ОТВЕТ: сразу уйдет в ExpiryQueue.
+            т.е. t = 0     Producer -> Queue
+                 t ≈ 0     Consumer получил сообщение
+                 t = 5 c   TTL истек
+                 t = 9 c   Consumer бросил исключение
+                            ↓
+                         Rollback
+                            ↓
+                 Artemis пытается вернуть сообщение в Queue
+                            ↓
+                 Видит, что TTL уже истек
+                            ↓
+                 Перемещает сообщение в ExpiryQueue
+
+       NOTE: если сообщение прочитано консюмером, НО НЕ обработано, то его статус = delivering
+            и оно значится в колонке Messages очереди, из к-ой его прочитали
+
+    2.2) Producer:
+            template.setTimeToLive(15_000);
+        и
+        consumer:
+            Thread.sleep(7000);
+            throw new JMSException("boom");
+        broker.xml
+            <redelivery-delay>2000</redelivery-delay>
+            <max-delivery-attempts>3</max-delivery-attempts>
+
+        Тогда
+            0 c    первая доставка
+            7 c    rollback
+            9 c    вторая доставка
+            16 c   rollback
+            К моменту второго rollback TTL (15 секунд) уже истечет, и сообщение уйдет в ExpiryQueue, не дожидаясь третьей попытки.
