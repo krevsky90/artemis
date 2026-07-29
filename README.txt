@@ -1228,3 +1228,61 @@ NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...);
         A (priority=1, delay=0 sec)
 
         Результат: сначала обрабатывается А, потом B, несмотря на приоритеты
+
+======== Структура сообщения и его сеттеры ===========
+Сообщение = JMS Header, JMS Properties и Body.
+
+| Header             | Кто устанавливает              | Можно ли менять через `message.set...()`  |
+| ------------------ | ------------------------------ | ----------------------------------------- |
+| `JMSMessageID`     | Provider                       | ❌ нет                                    |
+| `JMSTimestamp`     | Provider                       | ❌ нет                                    |
+| `JMSCorrelationID` | Приложение или Provider        | ✅ да                                     |
+| `JMSReplyTo`       | Приложение                     | ✅ да                                     |
+| `JMSDestination`   | Provider                       | ❌ нет                                    |
+| `JMSDeliveryMode`  | MessageProducer/JmsTemplate    | ❌ через Message нельзя                   |
+| `JMSRedelivered`   | Provider                       | ❌ нет                                    |
+| `JMSType`          | Приложение                     | ✅ да                                     |
+| `JMSExpiration`    | MessageProducer/JmsTemplate    | ❌ через Message нельзя                   |
+| `JMSPriority`      | MessageProducer/JmsTemplate    | ❌ через Message нельзя                   |
+
+Только через провайдер Artemis задаются:
+    JMSMessageID
+    JMSTimestamp
+    JMSDestination
+    JMSRedelivered
+
+Через JmsTemplate или MessageProducer (QoS) задаются:
+        template.setDeliveryPersistent(...);
+        template.setPriority(...);
+        template.setTimeToLive(...);
+    если выставлено
+        template.setExplicitQosEnabled(true);
+
+Непосредственно через объект Message:
+    1) JMS Headers
+        message.setJMSCorrelationID(...);
+        message.setJMSReplyTo(...);
+        message.setJMSType(...);
+    2) Пользовательские Properties типа message.setStringProperty("notificationType", "LOW_PRICE");
+        Поддерживаются
+            boolean
+            byte
+            short
+            int
+            long
+            float
+            double
+            String
+            и setObjectProperty(...)
+    3) Стандартные свойства JMSX свойства Artemis
+        и
+        расширения ActiveMQ Artemis (AMQ*)
+    | Свойство              | Тип                   | Как установить                                                                        | Назначение                                                                                                                                                            |
+    | --------------------- | --------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+    | `JMSXGroupID`         | `String`              | `message.setStringProperty("JMSXGroupID", orderId);`                                  | Message Groups: все сообщения группы обрабатываются одним consumer'ом и в порядке FIFO.                                                                               |
+    | `JMSXGroupSeq`        | `int`                 | `message.setIntProperty("JMSXGroupSeq", 1);`                                          | Порядковый номер внутри группы. Обычно Artemis вычисляет порядок сам, вручную задается редко. Значение `-1` может использоваться для закрытия группы.                 |
+    | `_AMQ_SCHED_DELIVERY` | `long`                | `message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + 30000);` | Отложенная доставка до указанного момента времени.                                                                                                                    |
+    | `_AMQ_DUPL_ID`        | `String` или `byte[]` | `message.setStringProperty("_AMQ_DUPL_ID", eventId);`                                 | Обнаружение дубликатов сообщений (Duplicate Detection). Если сообщение с таким ID уже принималось брокером, новое будет отброшено. Очень полезно для идемпотентности. |
+    | `_AMQ_ROUTE_TO`       | `String`              | `message.setStringProperty("_AMQ_ROUTE_TO", "queueA");`                               | Маршрутизация в конкретную очередь. Используется редко, в основном при сложной маршрутизации.                                                                         |
+    | `_AMQ_ROUTE_TO_IDS`   | `byte[]`              | Обычно не используется из JMS                                                         | Внутренняя оптимизированная маршрутизация по ID очередей. Практически никогда не применяется в приложениях.                                                           |
+
