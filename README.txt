@@ -870,5 +870,191 @@ Spring ничего не планирует. Всё делает сам Artemis.
         А отложенное сообщение (_AMQ_SCHED_DELIVERY) еще не находится в очереди доставки.
         Это не баг, потому что scheduler работает ДО помещения сообщения в очередь.
 
+Пример 3. Scheduled + Priority
+    NOTE: Priority учитывается только среди сообщений, которые уже доступны для доставки!
+
+    Как проставить приоритет:
+        message.setJMSPriority(N);
+        N = 1 - min priority
+        N = 9 - max priority
+
+    Пример кода:
+        jmsTemplate.convertAndSend(queueName, event, message -> {
+            message.setLongProperty("_AMQ_SCHED_DELIVERY", scheduledTime);
+            if ("HIGH".equals(event.product())) {
+                message.setJMSPriority(9);
+            } else {
+                message.setJMSPriority(1);
+            }
+
+            return message;
+        });
+
+Пример 4. Scheduled + TTL
+Выделяют
+1) Свойства, которые относятся к содержимому сообщения. Они задаются через Message
+	Примеры: JMSXGroupID, _AMQ_SCHED_DELIVERY, пользовательские свойства, селекторы).
+2) JMS-заголовки. Их формирует брокер. Они задаются через JmsTemplate или MessageProducer во время вызова send().
+	Это параметры отправки, которыми управляет JMS-провайдер.
+	Примеры:
+		Delivery Mode (PERSISTENT / NON_PERSISTENT)
+		Priority (0...9)
+		Time To Live (TTL)
+		(в JMS 2.0 также DeliveryDelay)
+
+Свойство explicitQosEnabled - расшифровывается как: Explicit Quality of Service Enabled
+	т.е. "Явно использовать параметры Quality of Service при отправке сообщения."
+
+В JMS под QoS понимают параметры, влияющие на доставку сообщения - см список в "JMS-заголовки"
+
+ЕСЛИ explicitQosEnabled = false (по умолчанию):
+	то Spring вызывает producer.send(message);
+	и все значения (TTL, Priority, DeliveryMode) берутся из настроек брокера или MessageProducer.
+NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...); и т д ИГНОРИРУЮТСЯ!
+
+ЕСЛИ explicitQosEnabled = true:
+	то Spring начинает вызывать перегруженный метод: producer.send(message, deliveryMode, priority, timeToLive);
+
+ИТОГО:
+	explicitQosEnabled = false → используй настройки брокера/JMS MessageProducer-а.
+	explicitQosEnabled = true → используй QoS, заданный в JmsTemplate.
+
+Для наглядности в консюмере можно добавить параметр Message message в сигнатуру метода consume и вывести свойства
+	log.info("JMSTimestamp={}", message.getJMSTimestamp());
+    log.info("JMSExpiration={}", message.getJMSExpiration());
+	log.info("JMSPriority={}", message.getJMSPriority());
 
 
+ВОПРОС: что такое JMS MessageProducer? и как задавать в нем настройки?
+ОТВЕТ: это JMS класс, работа с которым скрыта Spring-ом с помощью JmsTemplate.
+		В целом, JmsTemplate специально скрывает работу с Session и MessageProducer.
+		На каждый вызов convertAndSend() он сам создает (или берет из пула) Session и MessageProducer, отправляет сообщение и освобождает ресурсы.
+
+		Если очень хочется настроить именно MessageProducer, то нужно отказаться от convertAndSend() и использовать execute():
+		Пример:
+			jmsTemplate.execute(session -> {
+				Destination destination = session.createQueue(queueName);
+
+				MessageProducer producer = session.createProducer(destination);
+
+				producer.setPriority(9);
+				producer.setTimeToLive(10_000);
+				producer.setDeliveryMode(DeliveryMode.PERSISTENT);
+
+				TextMessage message = session.createTextMessage("Hello");
+
+				producer.send(message);
+
+				return null;
+			});
+
+НО так обычно никто не делает. Только исключительные случаи, когда надо тонко настроить отправку.
+При этом, если работать с MessageProducer-ом, то настройки в JmsTemplate уже не применятся: они просто не используются в этом пути отправки.
+
+ВОПРОС: что такое "настройки брокера"?
+ОТВЕТ: broker.xml — это совсем другой уровень.
+	Он не задает QoS отправляемого сообщения. Он определяет поведение брокера:
+		DLQ;
+		ExpiryQueue;
+		paging;
+		max-delivery-attempts;
+		redelivery-delay;
+		auto-create;
+		security и т.д.
+
+		TTL, Priority и DeliveryMode обычно приходят от клиента (producer), а не из broker.xml.
+
+ВОПРОС: что такое ExpiryQueue?
+ОТВЕТ: это очередь, в которую попадают сообщения с истекшим TTL.
+
+Эксперимент: TTL = 10s, _AMQ_SCHED_DELIVERY = 30s.
+    Код:
+        JmsConfig продюсера:
+            template.setExplicitQosEnabled(true);
+            template.setTimeToLive(10_000);
+
+        OrderProducer:
+            public void send(OrderCreatedEvent orderCreatedEvent) {
+                jmsTemplate.convertAndSend(queueName, orderCreatedEvent, message -> {
+                    message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + 30_000);
+                    return message;
+                });
+            }
+
+	Результат: сообщение 30с хранится в очереди, а когда становится доступным, консюмер его НЕ обрабатывает, т.к. TTL уже истек,
+		и сообщение отправляется в ExpiryQueue. В ней можно посмотреть свойства сообщения:
+	| Свойство                 | Значение        | Что означает                                                                                            |
+	| ------------------------ | --------------- | ------------------------------------------------------------------------------------------------------- |
+	| `__AMQ_CID`              | `517ec71f-...`  | ID JMS-соединения (Connection ID), через которое сообщение было отправлено. Используется самим Artemis. |
+	| `_AMQ_ORIG_ROUTING_TYPE` | `1`             | Исходный тип маршрутизации. `1` = ANYCAST (Queue), `0` = MULTICAST (Topic).                             |
+	| `_AMQ_SCHED_DELIVERY`    | `1785270031162` | Время (Unix epoch, мс), **не раньше которого** сообщение можно доставить потребителю.                   |
+	| `_AMQ_ACTUAL_EXPIRY`     | `1785270032277` | Момент, когда Artemis **фактически признал сообщение просроченным** и переместил его в `ExpiryQueue`.   |
+	| `_AMQ_ORIG_MESSAGE_ID`   | `4302397906`    | ID исходного сообщения до его копирования в `ExpiryQueue`. Очень полезно для диагностики.               |
+
+	NOTE: сообщение оказалось в ExpiryQueue не в момент истечения TTL, а при первой попытке его реально обработать.
+		Потому что Scheduled Message хранится во внутреннем scheduler'е Artemis.
+		До наступления _AMQ_SCHED_DELIVERY сообщение вообще не находится в очереди доставки.
+		Поэтому брокер не проверяет TTL каждую секунду.
+		т.е. логика работы:
+			1) дождаться Scheduled Delivery;
+			2) только потом проверить TTL;
+			3) если TTL уже истек — сразу отправить в ExpiryQueue.
+
+На практике используют Schedule механизм для
+1) Postponed Retry:
+    OrderProducer - просто отправляет сообщение
+    NotificationConsumer - читает сообщение, пытается послать его через EmailService, к-ый недоступен и кидает exception
+    в случае exception-a NotificationConsumer вызывает RetryProducer, передавая в него исходный эвент.
+    RetryProducer снова засунул НОВОЕ сообщение с тем же event-ом в ту же очередь (messaging.queues.orders), к-ую читает NotificationConsumer,
+    поставив
+        _AMQ_SCHED_DELIVERY = currentTime + 10s (например)
+        retryCount++
+    NOTE: если retry >= 5, то RetryProducer перестает пытаться.
+        BEST PRACTICE: НЕ посылать сообщение в DLQ. А отправлять в отдельную бизнес-очередь (типа notification.retry.failed).
+            Системную DLQ обычно оставляют для действительно инфраструктурных сбоев
+                (например, ошибки десериализации, проблемы с брокером, неожиданные исключения в обработчике),
+                а бизнес-ошибки обрабатывают через собственные очереди.
+
+2) Автоматическая отмена бронирования
+    Пользователь оформил заказ. На оплату дается 30 минут.
+    После CreateOrder OrderService делает две вещи.
+    1. Сохраняет заказ. status = CREATED
+    2. Планирует отмену
+        @Service
+        @RequiredArgsConstructor
+        public class OrderTimeoutProducer {
+            private final JmsTemplate jmsTemplate;
+
+            @Value("${messaging.queues.cancel-orders}")
+            private String queue;
+
+            public void scheduleCancellation(UUID orderId) {
+                jmsTemplate.convertAndSend(queue, orderId, message -> {
+                    message.setLongProperty(
+                            "_AMQ_SCHED_DELIVERY",
+                            System.currentTimeMillis() + 30 * 60_000);
+                    return message;
+                });
+            }
+        }
+    Через 30 минут Consumer получает сообщение.
+        @Component
+        @RequiredArgsConstructor
+        public class CancelOrderConsumer {
+            private final OrderRepository repository;
+
+            @JmsListener(destination = "${messaging.queues.cancel-orders}")
+            public void consume(UUID orderId) {
+                Order order = repository.findById(orderId).orElseThrow();
+
+                if (order.getStatus() == CREATED) {
+                    order.setStatus(CANCELLED);
+                    repository.save(order);
+                    log.info("Order cancelled");
+                }
+            }
+        }
+
+    Если клиент оплатил через 10 минут, то OrderService просто меняет статус с CREATED -> PAID,
+        и CancelOrderConsumer ничего не делает
+    NOTE: дешевле принять неактуальное событие и ничего не сделать, чем искать такое событие, чтобы его удалить

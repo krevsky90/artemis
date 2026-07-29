@@ -21,17 +21,7 @@ public class OrderProducer {
 
     public void send(OrderCreatedEvent orderCreatedEvent) {
         jmsTemplate.convertAndSend(queueName, orderCreatedEvent, message -> {
-            long delay = 0L;
-            if ("KREV_PRODUCT_1".equalsIgnoreCase(orderCreatedEvent.product())
-                    && BigDecimal.valueOf(100.00).compareTo(orderCreatedEvent.price()) == 0) {
-                    delay = 15_000L;
-            } else if ("KREV_PRODUCT_2".equalsIgnoreCase(orderCreatedEvent.product())) {
-                delay = 30_000L;
-            }
-
-            message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + delay);
-            message.setStringProperty("JMSXGroupID", orderCreatedEvent.product());
-
+//            message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + 30_000);
             return message;
         });
     }
