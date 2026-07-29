@@ -6,24 +6,32 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-
 @Service
 public class OrderProducer {
-    private final JmsTemplate jmsTemplate;
+    private final JmsTemplate low;
+    private final JmsTemplate high;
 
     @Value("${messaging.queues.orders}")
     private String queueName;
 
-    public OrderProducer(@Qualifier("queueJmsTemplate") JmsTemplate jmsTemplate) {
-        this.jmsTemplate = jmsTemplate;
+    public OrderProducer(@Qualifier("lowPriorityJmsTemplate") JmsTemplate low,  @Qualifier("highPriorityJmsTemplate") JmsTemplate high) {
+        this.low = low;
+        this.high = high;
     }
 
-    public void send(OrderCreatedEvent orderCreatedEvent) {
-        jmsTemplate.convertAndSend(queueName, orderCreatedEvent, message -> {
-//            message.setJMSExpiration(10_000);   // does not work! will be ignored/overriden by JmsTemplate
-//            message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + 30_000);
-            return message;
-        });
+    public void send(OrderCreatedEvent event) {
+        if (event.product().startsWith("KREV")) {
+            sendHigh(event);
+        } else {
+            sendLow(event);
+        }
+    }
+
+    public void sendLow(OrderCreatedEvent event) {
+        low.convertAndSend(queueName, event);
+    }
+
+    public void sendHigh(OrderCreatedEvent event) {
+        high.convertAndSend(queueName, event);
     }
 }

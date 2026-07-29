@@ -64,4 +64,28 @@ public class JmsConfig {
 
         return template;
     }
+
+    @Bean
+    public JmsTemplate lowPriorityJmsTemplate(ConnectionFactory connectionFactory, MessageConverter converter) {
+        JmsTemplate template = new JmsTemplate(connectionFactory);
+        template.setMessageConverter(converter);
+        template.setPubSubDomain(false);
+
+        template.setExplicitQosEnabled(true);
+        template.setPriority(1);
+
+        return template;
+    }
+
+    @Bean
+    public JmsTemplate highPriorityJmsTemplate(ConnectionFactory connectionFactory, MessageConverter converter) {
+        JmsTemplate template = new JmsTemplate(connectionFactory);
+        template.setMessageConverter(converter);
+        template.setPubSubDomain(false);
+
+        template.setExplicitQosEnabled(true);
+        template.setPriority(9);
+
+        return template;
+    }
 }

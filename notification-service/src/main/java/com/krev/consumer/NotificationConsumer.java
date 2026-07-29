@@ -15,10 +15,6 @@ public class NotificationConsumer {
             containerFactory = "queueListenerFactory")
     public void consume(OrderCreatedEvent event, Message message) throws JMSException {
         log.info("NotificationConsumer has received eventId = {} with product = {}", event.eventId(), event.product());
-        log.info("JMSTimestamp={}", message.getJMSTimestamp());
-        log.info("JMSExpiration={}", message.getJMSExpiration());
-        log.info("deliveryCount={}", message.getIntProperty("JMSXDeliveryCount"));
-
-//        throw new JMSException("boom");
+        log.info("JMSPriority={}", message.getJMSPriority());
     }
 }

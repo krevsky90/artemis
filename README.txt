@@ -873,21 +873,14 @@ Spring ничего не планирует. Всё делает сам Artemis.
 Пример 3. Scheduled + Priority
     NOTE: Priority учитывается только среди сообщений, которые уже доступны для доставки!
 
-    Как проставить приоритет:
-        message.setJMSPriority(N);
-        N = 1 - min priority
+    Как проставить приоритет - в JmsTemplate, в бине:
+        template.setJMSPriority(N);
+        N = 0 - min priority
         N = 9 - max priority
 
     Пример кода:
         jmsTemplate.convertAndSend(queueName, event, message -> {
             message.setLongProperty("_AMQ_SCHED_DELIVERY", scheduledTime);
-            if ("HIGH".equals(event.product())) {
-                message.setJMSPriority(9);
-            } else {
-                message.setJMSPriority(1);
-            }
-
-            return message;
         });
 
 Пример 4. Scheduled + TTL
@@ -1183,3 +1176,36 @@ NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...);
                     3) consumer читает уже готовое сообщение.
                     Поэтому интерфейс содержит сеттеры, но спецификация говорит,
                         что часть из них предназначена для использования самим провайдером, а не пользовательским кодом.
+
+Этап 13 Priority.
+    NOTE: т.к. JMSPriority - это системный заголовок, то message.setPriority(..) НЕ СРАБОТАЕТ!
+
+    Эксперимент 2. Priority работает только в очереди ожидания
+        Остановить консюмер
+        Отправить P=1, P=9, P=1, P=9, P=1, P=9
+        После этого включить consumer.
+        Ожидаемый порядок:
+        9 9 9 1 1 1
+
+        Код:
+            создать в продюсере
+                lowPriorityJmsTemplate (с template.setPriority(1);)
+                highPriorityJmsTemplate (с template.setPriority(9);)
+
+                отправитель:
+                        public void send(OrderCreatedEvent event) {
+                            if (event.product().startsWith("KREV")) {
+                                sendHigh(event);
+                            } else {
+                                sendLow(event);
+                            }
+                        }
+
+                        public void sendLow(OrderCreatedEvent event) {
+                            lowPriorityJmsTemplate.convertAndSend(queueName, event);
+                        }
+
+                        public void sendHigh(OrderCreatedEvent event) {
+                            highPriorityJmsTemplate.convertAndSend(queueName, event);
+                        }
+
