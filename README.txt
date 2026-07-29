@@ -1221,3 +1221,10 @@ NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...);
         закончил P=1
         начал P=9
 
+    Эксперимент 4. Priority + Scheduled
+        отправляем сообщения
+        B (priority=9, delay=10 sec)
+        затем через 1 сек
+        A (priority=1, delay=0 sec)
+
+        Результат: сначала обрабатывается А, потом B, несмотря на приоритеты

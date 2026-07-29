@@ -32,6 +32,9 @@ public class OrderProducer {
     }
 
     public void sendHigh(OrderCreatedEvent event) {
-        high.convertAndSend(queueName, event);
+        high.convertAndSend(queueName, event, message -> {
+            message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + 10_000);
+            return message;
+        });
     }
 }
