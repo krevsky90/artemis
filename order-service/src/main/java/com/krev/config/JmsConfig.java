@@ -57,7 +57,7 @@ public class JmsConfig {
 
         template.setMessageConverter(converter);
         template.setExplicitQosEnabled(true);
-//        template.setTimeToLive(10_000);
+        template.setTimeToLive(20_000);
 
         // JMS template for publishing messages to Topics (not Queue!)
         template.setPubSubDomain(false);
