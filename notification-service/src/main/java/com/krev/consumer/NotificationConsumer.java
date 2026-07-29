@@ -19,6 +19,6 @@ public class NotificationConsumer {
         log.info("JMSExpiration={}", message.getJMSExpiration());
         log.info("deliveryCount={}", message.getIntProperty("JMSXDeliveryCount"));
 
-        throw new JMSException("boom");
+//        throw new JMSException("boom");
     }
 }

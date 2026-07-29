@@ -21,6 +21,7 @@ public class OrderProducer {
 
     public void send(OrderCreatedEvent orderCreatedEvent) {
         jmsTemplate.convertAndSend(queueName, orderCreatedEvent, message -> {
+//            message.setJMSExpiration(10_000);   // does not work! will be ignored/overriden by JmsTemplate
 //            message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + 30_000);
             return message;
         });
