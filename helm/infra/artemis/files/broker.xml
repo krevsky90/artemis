@@ -221,7 +221,7 @@ under the License.
             <!-- После ошибки ждать 10 секунд -->
             <redelivery-delay>10000</redelivery-delay>
 
-            <!-- Максимум 3 попытки -->
+            <!-- Максимум 5 попыток -->
             <max-delivery-attempts>5</max-delivery-attempts>
 
             <message-counter-history-day-limit>10</message-counter-history-day-limit>

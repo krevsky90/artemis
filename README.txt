@@ -1122,3 +1122,40 @@ NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...);
             9 c    вторая доставка
             16 c   rollback
             К моменту второго rollback TTL (15 секунд) уже истечет, и сообщение уйдет в ExpiryQueue, не дожидаясь третьей попытки.
+
+        3) TTL + Redelivery
+            TTL = 20 сек
+            redelivery-delay = 10 сек
+            consumer:
+            1 попытка -> exception
+            через 10 секунд
+            2 попытка -> exception
+            еще через 10 секунд
+            TTL уже закончился.
+
+            Код:
+                в JmsTemplate продюсера:
+                    template.setExplicitQosEnabled(true);
+                    template.setTimeToLive(20_000);
+
+                в broker.xml
+                    <address-setting match="#">
+                        <redelivery-delay>10000</redelivery-delay>
+                        <max-delivery-attempts>5</max-delivery-attempts>
+                        ...
+
+                в консюмере:
+                    в JmsConfig:
+                        factory.setSessionTransacted(true);
+
+                    в consume(..):
+                        log.info("JMSTimestamp={}", message.getJMSTimestamp());
+                        log.info("JMSExpiration={}", message.getJMSExpiration());
+                        log.info("deliveryCount={}", message.getIntProperty("JMSXDeliveryCount"));
+                        throw new JMSException("boom");
+
+                NOTE: redelivery наступает, если sessionTransacted= true и консюмер бросает Exception
+
+            ОТВЕТ: после 2х попыток сообщение уходит в ExpiryQueue
+
+        4) NOTE: template.setTimeToLive(0); значит, что TTL отсутствует, сообщение не умрет.
