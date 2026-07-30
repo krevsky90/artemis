@@ -1294,6 +1294,21 @@ NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...);
             и поэтому, когда Артемис снова доступен, консюмер еще раз обрабатывает сообщение (ждет 30с и пр), а потом успешно отсылает Ack.
             NOTE: в сообщении при второй попытке redelivered=true, deliveryCount=2
 
+    Эксперимент 3. Persistence + rollback.
+        Consumer:
+            Thread.sleep(10000);
+            throw new RuntimeException();
+        Шаги:
+            отправить сообщение;
+            во время sleep убить Artemis;
+            поднять Artemis;
+            посмотреть JMSXDeliveryCount.
+        ИТОГО: deliveryCount = 2. НО по сути ределивери происходит из-за того же, что в эксперименте 2.
+            т.е. Exception тут ни на что не влияет! т.к. соединение уже разорвано с брокером.
+
+        А если бы Артемис был бы жив, transaction = true, то после RuntimeException спринг запустил бы rollback процесс,
+            это было бы сигналом Артемису, что сообщение надо redelivery-ть. т.е.
+
 ======== Структура сообщения и его сеттеры ===========
 Сообщение = JMS Header, JMS Properties и Body.
 
