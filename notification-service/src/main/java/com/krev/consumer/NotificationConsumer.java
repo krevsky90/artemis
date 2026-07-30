@@ -23,8 +23,8 @@ public class NotificationConsumer {
                 message.getIntProperty("JMSXDeliveryCount")
         );
 
-        if (event.product().contains("KREV_HIGH") && !message.getJMSRedelivered()) {
-            throw new RuntimeException("KREV_HIGH Exception!");
-        }
+        Thread.sleep(30000);
+
+        log.info("NotificationConsumer has finished to handle eventId = {} with product = {}", event.eventId(), event.product());
     }
 }

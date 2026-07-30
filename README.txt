@@ -1269,6 +1269,30 @@ NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...);
         А Если отправить Р=9, словить exception и rollback, погасить консюмер и отправить сообщение с Р=1,
         то когда консюмер поднимется (и redelivery delay пройдет у сообщения с Р=9), то сообщение с Р=9 будет обработано РАНЬШЕ
 
+Этап 14 Persistence.
+    Эксперимент 2. Persistence во время доставки
+        отправить сообщение;
+        убедиться, что consumer начал его обрабатывать;
+        пока идет sleep(30000) — убить Artemis;
+        запустить Artemis снова;
+        дождаться восстановления соединения.
+
+        Код:
+            консюмер:
+                log.info("NotificationConsumer has received eventId = {} with product = {}", event.eventId(), event.product());
+                log.info(
+                        "eventId={}, priority={}, redelivered={}, deliveryCount={}",
+                        event.eventId(),
+                        message.getJMSPriority(),
+                        message.getJMSRedelivered(),
+                        message.getIntProperty("JMSXDeliveryCount")
+                );
+                Thread.sleep(30000);
+                log.info("NotificationConsumer has finished to handle eventId = {} with product = {}", event.eventId(), event.product());
+
+        ИТОГО: несмотря на мертвый Артемис, консюмер заканчивает обработку сообщения, НО не может послать Ack.
+            и поэтому, когда Артемис снова доступен, консюмер еще раз обрабатывает сообщение (ждет 30с и пр), а потом успешно отсылает Ack.
+            NOTE: в сообщении при второй попытке redelivered=true, deliveryCount=2
 
 ======== Структура сообщения и его сеттеры ===========
 Сообщение = JMS Header, JMS Properties и Body.
