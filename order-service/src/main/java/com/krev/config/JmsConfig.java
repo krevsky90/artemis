@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.krev.order.contract.OrderCreatedEvent;
 import jakarta.jms.ConnectionFactory;
+import jakarta.jms.DeliveryMode;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -57,7 +58,8 @@ public class JmsConfig {
 
         template.setMessageConverter(converter);
         template.setExplicitQosEnabled(true);
-        template.setTimeToLive(20_000);
+//        template.setTimeToLive(20_000);
+        template.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
 
         // JMS template for publishing messages to Topics (not Queue!)
         template.setPubSubDomain(false);

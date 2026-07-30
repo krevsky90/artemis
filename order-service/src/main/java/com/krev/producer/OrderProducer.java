@@ -10,30 +10,30 @@ import java.math.BigDecimal;
 
 @Service
 public class OrderProducer {
-    private final JmsTemplate low;
-    private final JmsTemplate high;
+//    private final JmsTemplate low;
+//    private final JmsTemplate high;
+    private final JmsTemplate jmsTemplate;
 
     @Value("${messaging.queues.orders}")
     private String queueName;
 
-    public OrderProducer(@Qualifier("lowPriorityJmsTemplate") JmsTemplate low,  @Qualifier("highPriorityJmsTemplate") JmsTemplate high) {
-        this.low = low;
-        this.high = high;
+//    public OrderProducer(@Qualifier("lowPriorityJmsTemplate") JmsTemplate low,  @Qualifier("highPriorityJmsTemplate") JmsTemplate high) {
+//        this.low = low;
+//        this.high = high;
+
+    public OrderProducer(@Qualifier("queueJmsTemplate") JmsTemplate jmsTemplate) {
+        this.jmsTemplate = jmsTemplate;
     }
 
     public void send(OrderCreatedEvent event) {
-        if (BigDecimal.valueOf(1000L).compareTo(event.price()) <= 0) {
-            sendHigh(event);
-        } else {
-            sendLow(event);
-        }
+        jmsTemplate.convertAndSend(queueName, event);
     }
 
     public void sendLow(OrderCreatedEvent event) {
-        low.convertAndSend(queueName, event);
+//        low.convertAndSend(queueName, event);
     }
 
     public void sendHigh(OrderCreatedEvent event) {
-        high.convertAndSend(queueName, event);
+//        high.convertAndSend(queueName, event);
     }
 }

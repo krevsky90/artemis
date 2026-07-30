@@ -1309,6 +1309,18 @@ NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...);
         А если бы Артемис был бы жив, transaction = true, то после RuntimeException спринг запустил бы rollback процесс,
             это было бы сигналом Артемису, что сообщение надо redelivery-ть. т.е.
 
+    Эксперимент 4. Persistent vs Non-persistent
+        в продюсере:
+             template.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+             или
+             template.setDeliveryMode(false);
+
+        гасим консюмера
+        Отправляем сообщение: его параметр durable - пустой.
+        ребутаем Артемис
+        сообщения в очереди больше нет
+
+
 ======== Структура сообщения и его сеттеры ===========
 Сообщение = JMS Header, JMS Properties и Body.
 
