@@ -13,13 +13,18 @@ public class NotificationConsumer {
     @JmsListener(destination = "${messaging.queues.orders}",
 //            subscription = "${messaging.subscriptions.notification}",
             containerFactory = "queueListenerFactory")
-    public void consume(OrderCreatedEvent event, Message message) throws JMSException {
+    public void consume(OrderCreatedEvent event, Message message) throws JMSException, InterruptedException {
         log.info("NotificationConsumer has received eventId = {} with product = {}", event.eventId(), event.product());
         log.info(
-                "eventId={}, priority={}, group={}",
+                "eventId={}, priority={}, redelivered={}, deliveryCount={}",
                 event.eventId(),
                 message.getJMSPriority(),
-                message.getStringProperty("JMSXGroupID")
+                message.getJMSRedelivered(),
+                message.getIntProperty("JMSXDeliveryCount")
         );
+
+        if (event.product().contains("KREV_HIGH") && !message.getJMSRedelivered()) {
+            throw new RuntimeException("KREV_HIGH Exception!");
+        }
     }
 }

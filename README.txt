@@ -1239,6 +1239,37 @@ NOTE: а настройки в JmsTemplate типа template.setTimeToLive(...);
             т.е. последовательность внутри группы НЕ сохраняется!
             (хотя chatGPT думал, что сохранится)
 
+    Эксперимент 6. Priority + несколько consumer'ов
+        set concurrency=5
+        отправить сообщения с приоритетами 1 2 3 4 9
+        Если все consumer'ы свободны, брокер постарается сначала раздать сообщения с более высоким приоритетом,
+        НО абсолютной гарантии глобального порядка уже нет, поскольку выдача идет нескольким потокам одновременно.
+
+    Эксперимент 7. Priority + redelivery
+        отправил сообщение с P=9. получил rollback.
+        Пока он ждет redelivery-delay=10 sec
+        в очередь приходит сообщение с P=5
+
+        ИТОГО: пока сообщение с Р=9 ждет, сообщение с Р=1 будет обработано РАНЬШЕ!
+            {"@timestamp":"2026-07-30T15:40:51.081189808Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Notifica
+            tionConsumer has received eventId = cc7ca56a-1ae2-4a64-9466-3568f5d55724 with product = KREV_HIGH_PRODUCT_150"}
+            {"@timestamp":"2026-07-30T15:40:51.083754054Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"eventId=
+            cc7ca56a-1ae2-4a64-9466-3568f5d55724, priority=9, redelivered=false, deliveryCount=1"}
+            {"@timestamp":"2026-07-30T15:40:51.094228642Z","service":"notification-service","level":"WARN","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Executio
+            n of JMS message listener failed, and no ErrorHandler has been set."}
+            {"@timestamp":"2026-07-30T15:40:54.420340597Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Notifica
+            tionConsumer has received eventId = e558ba1e-6d0b-4ec7-ab09-1e4a0b60d587 with product = KREV_PRODUCT_150"}
+            {"@timestamp":"2026-07-30T15:40:54.420706409Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"eventId=
+            e558ba1e-6d0b-4ec7-ab09-1e4a0b60d587, priority=1, redelivered=false, deliveryCount=1"}
+            {"@timestamp":"2026-07-30T15:41:01.095517462Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"Notifica
+            tionConsumer has received eventId = cc7ca56a-1ae2-4a64-9466-3568f5d55724 with product = KREV_HIGH_PRODUCT_150"}
+            {"@timestamp":"2026-07-30T15:41:01.095887659Z","service":"notification-service","level":"INFO","thread":"org.springframework.jms.JmsListenerEndpointContainer#0-1","message":"eventId=
+            cc7ca56a-1ae2-4a64-9466-3568f5d55724, priority=9, redelivered=true, deliveryCount=2"}
+
+        А Если отправить Р=9, словить exception и rollback, погасить консюмер и отправить сообщение с Р=1,
+        то когда консюмер поднимется (и redelivery delay пройдет у сообщения с Р=9), то сообщение с Р=9 будет обработано РАНЬШЕ
+
+
 ======== Структура сообщения и его сеттеры ===========
 Сообщение = JMS Header, JMS Properties и Body.
 

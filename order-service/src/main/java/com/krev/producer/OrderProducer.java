@@ -30,16 +30,10 @@ public class OrderProducer {
     }
 
     public void sendLow(OrderCreatedEvent event) {
-        low.convertAndSend(queueName, event, message -> {
-            message.setStringProperty("JMSXGroupID", event.product());
-            return message;
-        });
+        low.convertAndSend(queueName, event);
     }
 
     public void sendHigh(OrderCreatedEvent event) {
-        high.convertAndSend(queueName, event, message -> {
-            message.setStringProperty("JMSXGroupID", event.product());
-            return message;
-        });
+        high.convertAndSend(queueName, event);
     }
 }
