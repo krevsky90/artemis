@@ -69,7 +69,7 @@ public class JmsConfig {
     public JmsTemplate lowPriorityJmsTemplate(ConnectionFactory connectionFactory, MessageConverter converter) {
         JmsTemplate template = new JmsTemplate(connectionFactory);
         template.setMessageConverter(converter);
-        template.setPubSubDomain(false);
+//        template.setPubSubDomain(true);
 
         template.setExplicitQosEnabled(true);
         template.setPriority(1);
@@ -81,7 +81,7 @@ public class JmsConfig {
     public JmsTemplate highPriorityJmsTemplate(ConnectionFactory connectionFactory, MessageConverter converter) {
         JmsTemplate template = new JmsTemplate(connectionFactory);
         template.setMessageConverter(converter);
-        template.setPubSubDomain(false);
+//        template.setPubSubDomain(true);
 
         template.setExplicitQosEnabled(true);
         template.setPriority(9);

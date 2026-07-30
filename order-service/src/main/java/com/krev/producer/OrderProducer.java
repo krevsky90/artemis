@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+
 @Service
 public class OrderProducer {
     private final JmsTemplate low;
@@ -20,7 +22,7 @@ public class OrderProducer {
     }
 
     public void send(OrderCreatedEvent event) {
-        if (event.product().startsWith("KREV")) {
+        if (BigDecimal.valueOf(1000L).compareTo(event.price()) <= 0) {
             sendHigh(event);
         } else {
             sendLow(event);
@@ -28,12 +30,15 @@ public class OrderProducer {
     }
 
     public void sendLow(OrderCreatedEvent event) {
-        low.convertAndSend(queueName, event);
+        low.convertAndSend(queueName, event, message -> {
+            message.setStringProperty("JMSXGroupID", event.product());
+            return message;
+        });
     }
 
     public void sendHigh(OrderCreatedEvent event) {
         high.convertAndSend(queueName, event, message -> {
-            message.setLongProperty("_AMQ_SCHED_DELIVERY", System.currentTimeMillis() + 10_000);
+            message.setStringProperty("JMSXGroupID", event.product());
             return message;
         });
     }
