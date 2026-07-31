@@ -1361,6 +1361,64 @@ NOTE:
             moveMessage
             и пр
 
+======== Протоколы, поддерживаемые Artemis ==========
+info: https://chatgpt.com/g/g-p-69de2569c3f481918b01d49dddd12f4c/c/6a611648-b4e4-83ed-9dc7-ded84f7d0a5b
+
+| Протокол   | Назначение                        |
+| ---------- | --------------------------------- |
+| Core       | Родной протокол Artemis           |
+| JMS        | Java API (использует Core внутри) |
+| AMQP 1.0   | Стандарт обмена сообщениями       |
+| MQTT 3.x/5 | IoT                               |
+| STOMP      | Простые текстовые клиенты         |
+| OpenWire   | Совместимость с ActiveMQ Classic  |
+| HornetQ    | Совместимость со старым HornetQ   |
+
+NOTE: Все эти клиенты могут работать с одной и той же очередью.
+    MQTT Device
+           \
+    AMQP Python
+             \
+    JMS Spring Boot -----> orders.queue
+             /
+    STOMP JS
+
+1) протокол Core.
+    Core быстрее JMS, потому что нет слоя JMS API. Юзают если нужна максимальная производительность.
+2) JMS
+    код: всякие jmsTemplate.convertAndSend и @JmsListener(...)
+    работает поверх Core, т.е.
+    JmsTemplate -> JMS Client -> Artemis Core Client -> Broker
+3) AMQP 1.0.
+    Работает на языках Java, Python, Go, .NET, NodeJS, Rust.
+    Поэтому применяется, когда продюсер и консюмер написаны на РАЗНЫХ языках.
+4) MQTT
+    Очень лёгкий протокол. Предназначен для IoT.
+    Например, датчик температуры или GPS (lat, lon).
+    Т.е. продюсер: устройство - MQTT Producer.
+    консюмер: JMS Consumer
+5) STOMP
+    текстовый протокол. Можно открыть telnet.
+    Написать
+        SEND
+        destination:/queue/orders
+        hello
+    И сообщение уйдет.
+6) OpenWire
+    Это протокол старого ActiveMQ Classic.
+
+NOTE: Очередь НЕ зависит от протокола!
+        Сообщения на разных протоколах могут храниться в ОДНОЙ и той же очереди!
+        Консюмер не знает, по какому протоколу продюсер прислал сообщение брокеру
+        Пример:
+        Spring -> JMS -> orders.queue -> Python -> AMQP -> orders.queue -> NodeJS -> STOMP -> orders.queue
+
+Ограничения:
+    Например, JMS имеет JMSReplyTo, JMSCorrelationID, JMSPriority,
+        а MQTT не знает, что такое JMSReplyTo.
+
+Решение: в смешанных системах обычно рекомендуют передавать полезные данные в универсальном формате (чаще всего JSON или Avro)
+    и не делать приложение зависимым от специфичных возможностей одного протокола.
 
 ======== Структура сообщения и его сеттеры ===========
 Сообщение = JMS Header, JMS Properties и Body.
